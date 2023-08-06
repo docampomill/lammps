@@ -103,6 +103,7 @@ PACKAGE = \
 	ml-quip \
 	ml-rann \
 	ml-snap \
+        ml-tfnnp \
 	mofff \
 	molecule \
 	molfile \
@@ -249,6 +250,7 @@ PACKEXT = \
 	latte \
 	machdyn \
 	ml-hdnnp \
+        ml-tfnnp \
 	ml-pace \
 	ml-quip \
 	molfile \
