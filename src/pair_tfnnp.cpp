@@ -316,7 +316,9 @@ PairTFNNP ::~PairTFNNP()
   TF_DeleteStatus(Status);
 }
 
-/* ---------------------------------------------------------------------- */
+/* -----------------------------------------------------------------------------------------
+read the coeff parameters from pair_coeff command 
+-------------------------------------------------------------------------------------------*/
 
 void PairTFNNP::coeff(int narg, char **arg)
 {
@@ -371,13 +373,18 @@ void PairTFNNP::coeff(int narg, char **arg)
 
   if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients");
 }
-/* ---------------------------------------------------------------------- */
+
+/* ------------------------------------------------------------------------------------------ */
+
 void PairTFNNP::allocate()
 {
   allocated = 1;
   int n = atom->ntypes;
 
+  // setflag pointer used to flag whether certain interactions between pairs of atom types have been defined
   setflag = memory->create(setflag,n+1,n+1,"pair:setflag");
+
+  // cutsq pointer used to store squared cutoff distances between pairs of atom types
   cutsq = memory->create(cutsq,n+1,n+1,"pair:cutsq");
 
   for (int i = 1; i <= n; i++)
@@ -385,6 +392,8 @@ void PairTFNNP::allocate()
       setflag[i][j] = 0;
   
   map = new int[n+1];
+
+  // old way in LAMMPS to allocate memory 
   /*
   memory->create(setflag,n+1,n+1,"pair:setflag");
   for (int i = 1; i <= n; i++)
@@ -439,6 +448,9 @@ double PairTFNNP::init_one(int /*i*/, int /*j*/)
 void PairTFNNP::NoOpDeallocator(void* data, size_t a, void* b) {}
 
 
+/*---------------------------------------------------------------------------------
+inference Tensorflow neuron netowrk using Tensorflow C API 
+-----------------------------------------------------------------------------------*/
 void PairTFNNP::create_tensorflow_model()
 {
   Graph = TF_NewGraph();
@@ -459,9 +471,6 @@ void PairTFNNP::create_tensorflow_model()
   
   Input = (TF_Output*)malloc(sizeof(TF_Output) * tf_input_number);
 
-  //Input[0] = {TF_GraphOperationByName(Graph, "serving_default_atom_type"), 0};
-  //Input[1] = {TF_GraphOperationByName(Graph, "serving_default_fingerprints"),0};
- 
   for (int i=0;i<tf_input_number;i++){
     tensor_name = strtok(tf_input_tensor[i], ":");
     tag = strtok(NULL, ":");
@@ -472,7 +481,6 @@ void PairTFNNP::create_tensorflow_model()
   }
 
   Output = (TF_Output*)malloc(sizeof(TF_Output) * tf_output_number);
-  //Output[0] = {TF_GraphOperationByName(Graph, "StatefulPartitionedCall"),0};
   
   for (int i=0;i<tf_output_number;i++){
     tensor_name = strtok(tf_output_tensor[i], ":");
@@ -490,7 +498,9 @@ void PairTFNNP::create_tensorflow_model()
 }
 
 
-/*-----------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------
+compute ACSF fingerprints 
+-----------------------------------------------------------------------------------------------*/
 
 void PairTFNNP::compute_fingerprints()
 {
@@ -545,7 +555,7 @@ void PairTFNNP::compute_fingerprints()
       
       atom_elements[i] = map[type[i]];
       
-      // First neighborlist for atom i
+      // neighborlist for atom i
       const int* const jlist = firstneigh[i];
       jnum = numneigh[i];
 
@@ -717,8 +727,15 @@ void PairTFNNP::compute_derivatives()
 	rsq = Rx_ij*Rx_ij + Ry_ij*Ry_ij + Rz_ij*Rz_ij;
 	jtype = type[j];
 
+
+	double nb_pad = 1e-4;
+	// when rsq is too close to cutoffsq, sqrt(rsq/cutoffsq) is almost one,
+	// then the cutoff function(which appears in denominator of G4) is almost zero,
+	// making the G4 inf value, nb_pad is used to avoid this
+
+	
 	// Cutoff function Fc(Rij) and dFc(Rij) calculation
-	if (rsq < cutoffsq && rsq>1e-20) { 
+	if (cutoffsq-rsq > nb_pad && rsq>1e-20) { 
 	  function = 0.5*(cos(sqrt(rsq/cutoffsq)*pi)+1);
 	  dfc = -pi*0.5*sin(pi*sqrt(rsq/cutoffsq))/(sqrt(cutoffsq));
 
@@ -770,7 +787,7 @@ void PairTFNNP::compute_derivatives()
 	      if (cos_theta < -1)  cos_theta = -1;
 	      if (cos_theta > 1)   cos_theta = 1;
 
-	      if (rsq1 < cutoffsq && rsq1>1e-20 && rsq2 < cutoffsq && rsq2>1e-20) {
+	      if (cutoffsq-rsq1>nb_pad && rsq1>1e-20 && cutoffsq-rsq2>nb_pad && rsq2>1e-20) {
 		function1 = 0.5*(cos(sqrt(rsq1/cutoffsq)*pi)+1);               // fc(Rik)
 		function2 = 0.5*(cos(sqrt(rsq2/cutoffsq)*pi)+1);               // fc(Rjk)
 		dfc2 = -pi*0.5*sin(pi*sqrt(rsq2/cutoffsq))/(sqrt(cutoffsq));      // dFc(Rjk)

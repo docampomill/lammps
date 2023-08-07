@@ -247,8 +247,11 @@ void ComputeDerivatives::compute_derivatives()
 	jtype = type[j];
 
 
-	double nb_pad = 1e-4; // when rsq is too close to cutsq, sqrt(rsq/cutsq) is almost one, then its cos is almost zero, make the G4 inf value
-	                      // nb_pad is used to avoid this
+	double nb_pad = 1e-4;
+	// when rsq is too close to cutsq, sqrt(rsq/cutsq) is almost one,
+	// then the cutoff function(which appears in denominator of G4) is almost zero,
+	// making the G4 inf value, nb_pad is used to avoid this
+
 	// Cutoff function Fc(Rij) and dFc(Rij) calculation
 	if (cutsq-rsq>nb_pad && rsq>1e-20) { 
 	  function = 0.5*(cos(sqrt(rsq/cutsq)*pi)+1);

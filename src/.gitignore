@@ -1623,3 +1623,10 @@
 /pair_vashishta*.cpp
 /pair_vashishta*.h
 
+
+/compute_derivatives.cpp
+/compute_derivatives.h
+/compute_fingerprints.cpp
+/compute_fingerprints.h
+/pair_tfnnp.cpp
+/pair_tfnnp.h
