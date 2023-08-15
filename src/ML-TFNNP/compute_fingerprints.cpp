@@ -34,13 +34,14 @@
 #include "memory.h"
 #include "error.h"
 
+using namespace std;
 using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
 
 ComputeFingerprints::ComputeFingerprints(LAMMPS *lmp, int narg, char **arg) :
   Compute(lmp, narg, arg), 
-  cutsq(0.0), list(NULL), eta_G2(NULL), zeta(NULL), eta_G4(NULL), lambda(NULL), fingerprints(NULL)
+  cutsq(0.0), rs(NULL), eta_G2(NULL), zeta(NULL), eta_G4(NULL), lambda(NULL), fingerprints(NULL)
 
 {
 
@@ -54,8 +55,30 @@ ComputeFingerprints::ComputeFingerprints(LAMMPS *lmp, int narg, char **arg) :
   int g4_2 = 0;
   int g4_3 = 0;
 
+  bool rs_flag = false;
+  for (int iarg = 4; iarg < narg; ++iarg){
+    if (strcmp(arg[iarg],"rs") == 0){
+      rs_flag = true;
+    }
+  }
+
+  if (!rs_flag){
+    n_rs = 1;
+    memory->create(rs,n_rs,"fingerprints:rs");
+    rs[0] = 0.0;
+  }
+
   for (int iarg = 4; iarg < narg; iarg++) {
-    if (strcmp(arg[iarg],"etaG2") == 0) {
+    if (strcmp(arg[iarg],"rs") == 0){
+      n_rs = 0;
+      while (strcmp(arg[iarg+n_rs+1],"etaG2") && strcmp(arg[iarg+n_rs+1],"zeta") && strcmp(arg[iarg+n_rs+1],"etaG4") && strcmp(arg[iarg+n_rs+1],"lambda") && strcmp(arg[iarg+n_rs+1],"end")!= 0){
+        n_rs++;
+        memory->create(rs,n_rs,"fingerprints:rs");
+        for(int c = 0; c < n_rs; c++)
+        rs[c] = atof(arg[iarg+c+1]);
+      }
+    }
+    else if (strcmp(arg[iarg],"etaG2") == 0) {
       g2_flag = 1;
       n_etaG2 = 0;
       while (strcmp(arg[iarg+n_etaG2+1],"zeta") && strcmp(arg[iarg+n_etaG2+1],"etaG4") && strcmp(arg[iarg+n_etaG2+1],"lambda")!= 0 && strcmp(arg[iarg+n_etaG2+1],"end")!= 0)
@@ -97,7 +120,7 @@ ComputeFingerprints::ComputeFingerprints(LAMMPS *lmp, int narg, char **arg) :
 
   int ntypes = atom->ntypes;
   int ntypes_combinations = ntypes*(ntypes+1)/2;
-  n_fingerprints = n_etaG2*ntypes*g2_flag + n_lambda*n_zeta*n_etaG4*ntypes_combinations*g4_flag + ntypes;
+  n_fingerprints = n_etaG2*ntypes*g2_flag*n_rs + n_lambda*n_zeta*n_etaG4*ntypes_combinations*g4_flag + ntypes;
   size_peratom_cols = n_fingerprints;
 
   nmax_atom = 0; 
@@ -190,12 +213,18 @@ void ComputeFingerprints::compute_peratom()
   }
 
   int j, jnum, jtype, type_comb, k;
-  double Rx_ij, Ry_ij, Rz_ij, rsq, Rx_ik, Ry_ik, Rz_ik, rsq1;
+  double Rx_ij, Ry_ij, Rz_ij, rsq, rsq_g2, Rx_ik, Ry_ik, Rz_ik, rsq1;
   double Rx_jk, Ry_jk, Rz_jk, rsq2, cos_theta, aux, G4;
   double function, function1, function2;
 
+  cout << "FINGERPRINTS ====================================" << endl;
+  cout << "n_rs:" << n_rs << "\n";
+  for (int n = 0; n < n_rs; ++n){
+    cout << "    " << rs[n] << "\n";
+  }
+  cout << "====================== ======================" << "\n";
+  
   // The fingerprints are calculated for each atom i in the initial data
-
   for (int ii = 0; ii < inum; ii++) {
     const int i = ilist[ii];
     
@@ -204,6 +233,8 @@ void ComputeFingerprints::compute_peratom()
       // First neighborlist for atom i
       const int* const jlist = firstneigh[i];
       jnum = numneigh[i];
+
+      cout << " i:" << i << " pos:[" << x[i][0]<<", " << x[i][1] <<", " << x[i][2] << "]" << endl;
 
       /* ------------------------------------------------------------------------------------------------------------------------------- */
       for (int jj = 0; jj < jnum; jj++) {            // Loop for the first neighbor j
@@ -224,9 +255,22 @@ void ComputeFingerprints::compute_peratom()
           fingerprints_atom[jtype-1] += function;
 
           if (g2_flag == 1) {
-            // The number of G2 fingerprints depend on the number of given eta_G2 parameters
-            for (int m = 0; m < n_etaG2; m++)  {
-              fingerprints_atom[ntypes+m*ntypes+jtype-1] += exp(-eta_G2[m]*rsq)*function; // G2 fingerprints calculation 
+            // The number of G2 fingerprints depends on the number of given Rs parameters
+            for (int n = 0; n < n_rs; ++n){
+              // The number of G2 fingerprints depend on the number of given eta_G2 parameters
+              rsq_g2 = pow((sqrt(rsq)-rs[n]), 2);
+
+              for (int m = 0; m < n_etaG2; m++)  {
+                //        ntypes + m*ntypes +       jtype-1
+                int idx = ntypes + m*n_rs + n + (jtype-1)*n_etaG2*n_rs;
+
+                // print(f'  m:{m},  n:{n},  type:{jtype},  idx:{idx}')
+                // double dist = sqrt(rsq);
+                // double g2_value = exp(-eta_G2[m]*rsq_g2)*function;
+                // cout << "  type:" << jtype <<  "  j_pos:" << x[j][0] << ", " << x[j][1] << ", " << x[j][2] << "]" << "  d:" << dist << "  function:" << function << "  g2_value:" <<g2_value<<endl;
+
+                fingerprints_atom[idx] += exp(-eta_G2[m]*rsq_g2)*function; // G2 fingerprints calculation 
+              }
             }
           }
 
@@ -254,17 +298,16 @@ void ComputeFingerprints::compute_peratom()
 
                 // The number of G4 fingerprints depend on the number of given parameters
                 for (int h = 0; h < n_lambda; h++)  {
-                  aux = 1+(lambda[h]*cos_theta);
-		  if (aux < 0)
-		    aux = 0;
-		  
-		  for (int l = 0; l < n_zeta; l++)  {
-		    for (int q = 0; q < n_etaG4; q++) {
-		      G4 = pow(2,1-zeta[l])*pow(aux,zeta[l])*exp(-eta_G4[q]*(rsq+rsq1+rsq2))*function*function1*function2;
-		      if (kk > jj)   fingerprints_atom[ntypes+n_etaG2*ntypes+h+n_lambda*(l+n_zeta*(q+n_etaG4*type_comb))] += G4;
-		    }
-		  }
-                  
+                              aux = 1+(lambda[h]*cos_theta);
+            		  if (aux < 0)
+            		    aux = 0;
+            		  
+            		  for (int l = 0; l < n_zeta; l++)  {
+            		    for (int q = 0; q < n_etaG4; q++) {
+            		      G4 = pow(2,1-zeta[l])*pow(aux,zeta[l])*exp(-eta_G4[q]*(rsq+rsq1+rsq2))*function*function1*function2;
+            		      if (kk > jj)   fingerprints_atom[ntypes+(n_etaG2*ntypes*n_rs)+h+n_lambda*(l+n_zeta*(q+n_etaG4*type_comb))] += G4;
+            		    }
+            		  }
                 }
               }          
             }
@@ -274,6 +317,9 @@ void ComputeFingerprints::compute_peratom()
       
       // Writing the fingerprnts vector in the fingerprints matrix
       for(int n = 0; n < size_peratom_cols; n++) {
+        // if (i==2){
+        //   cout << "    i:" << i << " n:" << n << "  " << fingerprints_atom[n] << endl;
+        // }
         fingerprints[i][n] = fingerprints_atom[n];
         fingerprints_atom[n] = 0.0;
       }

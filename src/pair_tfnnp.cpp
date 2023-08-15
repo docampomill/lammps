@@ -348,7 +348,7 @@ void PairTFNNP::coeff(int narg, char **arg)
       element_check=0;
     else
       error->all(FLERR,"Incorrect args for pair coefficients");
-    if (i>=1 & map[i]!=map[i+1])
+    if (i>1 & map[i]!=map[i+1])
       element_count++;
   }
 

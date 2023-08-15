@@ -34,11 +34,14 @@ class ComputeDerivatives : public Compute {
   double memory_usage();
 
  private:
+  double cut;
   double cutsq;
+  double *rs;
   double *eta_G2;
   double *zeta;
   double *eta_G4;
   int *lambda;
+  int n_rs;
   int n_etaG2;
   int n_etaG4;
   int n_zeta;
