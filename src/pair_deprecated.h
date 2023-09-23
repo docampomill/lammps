@@ -15,7 +15,6 @@
 // clang-format off
 PairStyle(DEPRECATED,PairDeprecated);
 PairStyle(reax,PairDeprecated);
-PairStyle(mesont/tpm,PairDeprecated);
 // clang-format on
 #else
 

@@ -35,6 +35,7 @@ FixStyle(electrode/conp, FixElectrodeConp);
 namespace LAMMPS_NS {
 // forward decls
 
+class ElectrodeAccelInterface;
 class ElectrodeVector;
 class NeighList;
 class Pair;
@@ -55,7 +56,7 @@ class FixElectrodeConp : public Fix {
   double compute_array(int, int) override;
   int modify_param(int, char **) override;
   int modify_param(const std::string &);
-  virtual void init() override;
+  void init() override;
   void init_list(int, NeighList *) override;
   void post_constructor() override;    // used by ffield to set up fix efield
   double memory_usage() override;
@@ -100,7 +101,7 @@ class FixElectrodeConp : public Fix {
   bool ffield;                                           // possibly tweak electrode/conq's version
   std::string fixname;    // used by electrode/ffield to set up internal efield
   bool intelflag;
-  inline virtual void intel_pack_buffers() {}
+  std::unique_ptr<ElectrodeAccelInterface> accel_interface;    // used by /intel
 
  private:
   std::string output_file_inv, output_file_mat, output_file_vec;

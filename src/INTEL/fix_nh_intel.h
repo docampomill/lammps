@@ -25,7 +25,6 @@ namespace LAMMPS_NS {
 class FixNHIntel : public FixNH {
  public:
   FixNHIntel(class LAMMPS *, int, char **);
-  ~FixNHIntel() override;
   void setup(int vflag) override;
   void reset_dt() override;
   double memory_usage() override;

@@ -60,7 +60,7 @@ FixNH::FixNH(LAMMPS *lmp, int narg, char **arg) :
   eta_mass(nullptr), etap(nullptr), etap_dot(nullptr), etap_dotdot(nullptr),
   etap_mass(nullptr)
 {
-  if (narg < 4) utils::missing_cmd_args(FLERR, std::string("fix ") + style, error);
+  if (narg < 4) utils::missing_cmd_args(FLERR, "fix nvt/npt/nph", error);
 
   restart_global = 1;
   dynamic_group_allow = 1;
@@ -130,18 +130,19 @@ FixNH::FixNH(LAMMPS *lmp, int narg, char **arg) :
 
   while (iarg < narg) {
     if (strcmp(arg[iarg],"temp") == 0) {
-      if (iarg+4 > narg) utils::missing_cmd_args(FLERR, fmt::format("fix {} temp", style), error);
+      if (iarg+4 > narg) utils::missing_cmd_args(FLERR, "fix nvt/npt/nph temp", error);
       tstat_flag = 1;
       t_start = utils::numeric(FLERR,arg[iarg+1],false,lmp);
       t_target = t_start;
       t_stop = utils::numeric(FLERR,arg[iarg+2],false,lmp);
       t_period = utils::numeric(FLERR,arg[iarg+3],false,lmp);
       if (t_start <= 0.0 || t_stop <= 0.0)
-        error->all(FLERR, "Target temperature for fix {} cannot be 0.0", style);
+        error->all(FLERR,
+                   "Target temperature for fix nvt/npt/nph cannot be 0.0");
       iarg += 4;
 
     } else if (strcmp(arg[iarg],"iso") == 0) {
-      if (iarg+4 > narg) utils::missing_cmd_args(FLERR, fmt::format("fix {} iso", style), error);
+      if (iarg+4 > narg) utils::missing_cmd_args(FLERR, "fix nvt/npt/nph iso", error);
       pcouple = XYZ;
       p_start[0] = p_start[1] = p_start[2] = utils::numeric(FLERR,arg[iarg+1],false,lmp);
       p_stop[0] = p_stop[1] = p_stop[2] = utils::numeric(FLERR,arg[iarg+2],false,lmp);
@@ -154,7 +155,7 @@ FixNH::FixNH(LAMMPS *lmp, int narg, char **arg) :
       }
       iarg += 4;
     } else if (strcmp(arg[iarg],"aniso") == 0) {
-      if (iarg+4 > narg) utils::missing_cmd_args(FLERR, fmt::format("fix {} aniso", style), error);
+      if (iarg+4 > narg) utils::missing_cmd_args(FLERR, "fix nvt/npt/nph aniso", error);
       pcouple = NONE;
       p_start[0] = p_start[1] = p_start[2] = utils::numeric(FLERR,arg[iarg+1],false,lmp);
       p_stop[0] = p_stop[1] = p_stop[2] = utils::numeric(FLERR,arg[iarg+2],false,lmp);
@@ -167,7 +168,7 @@ FixNH::FixNH(LAMMPS *lmp, int narg, char **arg) :
       }
       iarg += 4;
     } else if (strcmp(arg[iarg],"tri") == 0) {
-      if (iarg+4 > narg) utils::missing_cmd_args(FLERR, fmt::format("fix {} tri", style), error);
+      if (iarg+4 > narg) utils::missing_cmd_args(FLERR, "fix nvt/npt/nph tri", error);
       pcouple = NONE;
       scalexy = scalexz = scaleyz = 0;
       p_start[0] = p_start[1] = p_start[2] = utils::numeric(FLERR,arg[iarg+1],false,lmp);
@@ -190,7 +191,7 @@ FixNH::FixNH(LAMMPS *lmp, int narg, char **arg) :
       }
       iarg += 4;
     } else if (strcmp(arg[iarg],"x") == 0) {
-      if (iarg+4 > narg) utils::missing_cmd_args(FLERR, fmt::format("fix {} x", style), error);
+      if (iarg+4 > narg) utils::missing_cmd_args(FLERR, "fix nvt/npt/nph x", error);
       p_start[0] = utils::numeric(FLERR,arg[iarg+1],false,lmp);
       p_stop[0] = utils::numeric(FLERR,arg[iarg+2],false,lmp);
       p_period[0] = utils::numeric(FLERR,arg[iarg+3],false,lmp);
@@ -198,7 +199,7 @@ FixNH::FixNH(LAMMPS *lmp, int narg, char **arg) :
       deviatoric_flag = 1;
       iarg += 4;
     } else if (strcmp(arg[iarg],"y") == 0) {
-      if (iarg+4 > narg) utils::missing_cmd_args(FLERR, fmt::format("fix {} y", style), error);
+      if (iarg+4 > narg) utils::missing_cmd_args(FLERR, "fix nvt/npt/nph y", error);
       p_start[1] = utils::numeric(FLERR,arg[iarg+1],false,lmp);
       p_stop[1] = utils::numeric(FLERR,arg[iarg+2],false,lmp);
       p_period[1] = utils::numeric(FLERR,arg[iarg+3],false,lmp);
@@ -206,17 +207,18 @@ FixNH::FixNH(LAMMPS *lmp, int narg, char **arg) :
       deviatoric_flag = 1;
       iarg += 4;
     } else if (strcmp(arg[iarg],"z") == 0) {
-      if (iarg+4 > narg) utils::missing_cmd_args(FLERR, fmt::format("fix {} z", style), error);
+      if (iarg+4 > narg) utils::missing_cmd_args(FLERR, "fix nvt/npt/nph z", error);
       p_start[2] = utils::numeric(FLERR,arg[iarg+1],false,lmp);
       p_stop[2] = utils::numeric(FLERR,arg[iarg+2],false,lmp);
       p_period[2] = utils::numeric(FLERR,arg[iarg+3],false,lmp);
       p_flag[2] = 1;
       deviatoric_flag = 1;
       iarg += 4;
-      if (dimension == 2) error->all(FLERR,"Invalid fix {} command for a 2d simulation", style);
+      if (dimension == 2)
+        error->all(FLERR,"Invalid fix nvt/npt/nph command for a 2d simulation");
 
     } else if (strcmp(arg[iarg],"yz") == 0) {
-      if (iarg+4 > narg) utils::missing_cmd_args(FLERR, fmt::format("fix {} yz", style), error);
+      if (iarg+4 > narg) utils::missing_cmd_args(FLERR, "fix nvt/npt/nph yz", error);
       p_start[3] = utils::numeric(FLERR,arg[iarg+1],false,lmp);
       p_stop[3] = utils::numeric(FLERR,arg[iarg+2],false,lmp);
       p_period[3] = utils::numeric(FLERR,arg[iarg+3],false,lmp);
@@ -224,9 +226,10 @@ FixNH::FixNH(LAMMPS *lmp, int narg, char **arg) :
       deviatoric_flag = 1;
       scaleyz = 0;
       iarg += 4;
-      if (dimension == 2) error->all(FLERR,"Invalid fix {} command for a 2d simulation", style);
+      if (dimension == 2)
+        error->all(FLERR,"Invalid fix nvt/npt/nph command for a 2d simulation");
     } else if (strcmp(arg[iarg],"xz") == 0) {
-      if (iarg+4 > narg) utils::missing_cmd_args(FLERR, fmt::format("fix {} xz", style), error);
+      if (iarg+4 > narg) utils::missing_cmd_args(FLERR, "fix nvt/npt/nph xz", error);
       p_start[4] = utils::numeric(FLERR,arg[iarg+1],false,lmp);
       p_stop[4] = utils::numeric(FLERR,arg[iarg+2],false,lmp);
       p_period[4] = utils::numeric(FLERR,arg[iarg+3],false,lmp);
@@ -234,9 +237,10 @@ FixNH::FixNH(LAMMPS *lmp, int narg, char **arg) :
       deviatoric_flag = 1;
       scalexz = 0;
       iarg += 4;
-      if (dimension == 2) error->all(FLERR,"Invalid fix {} command for a 2d simulation", style);
+      if (dimension == 2)
+        error->all(FLERR,"Invalid fix nvt/npt/nph command for a 2d simulation");
     } else if (strcmp(arg[iarg],"xy") == 0) {
-      if (iarg+4 > narg) utils::missing_cmd_args(FLERR, fmt::format("fix {} xy", style), error);
+      if (iarg+4 > narg) utils::missing_cmd_args(FLERR, "fix nvt/npt/nph xy", error);
       p_start[5] = utils::numeric(FLERR,arg[iarg+1],false,lmp);
       p_stop[5] = utils::numeric(FLERR,arg[iarg+2],false,lmp);
       p_period[5] = utils::numeric(FLERR,arg[iarg+3],false,lmp);
@@ -246,28 +250,28 @@ FixNH::FixNH(LAMMPS *lmp, int narg, char **arg) :
       iarg += 4;
 
     } else if (strcmp(arg[iarg],"couple") == 0) {
-      if (iarg+2 > narg) utils::missing_cmd_args(FLERR, fmt::format("fix {} couple", style), error);
+      if (iarg+2 > narg) utils::missing_cmd_args(FLERR, "fix nvt/npt/nph couple", error);
       if (strcmp(arg[iarg+1],"xyz") == 0) pcouple = XYZ;
       else if (strcmp(arg[iarg+1],"xy") == 0) pcouple = XY;
       else if (strcmp(arg[iarg+1],"yz") == 0) pcouple = YZ;
       else if (strcmp(arg[iarg+1],"xz") == 0) pcouple = XZ;
       else if (strcmp(arg[iarg+1],"none") == 0) pcouple = NONE;
-      else error->all(FLERR,"Illegal fix {} couple option: {}", style, arg[iarg+1]);
+      else error->all(FLERR,"Illegal fix nvt/npt/nph command");
       iarg += 2;
 
     } else if (strcmp(arg[iarg],"drag") == 0) {
-      if (iarg+2 > narg) utils::missing_cmd_args(FLERR, fmt::format("fix {} drag", style), error);
+      if (iarg+2 > narg) utils::missing_cmd_args(FLERR, "fix nvt/npt/nph drag", error);
       drag = utils::numeric(FLERR,arg[iarg+1],false,lmp);
-      if (drag < 0.0) error->all(FLERR, "Invalid fix {} drag argument: {}", style, drag);
+      if (drag < 0.0) error->all(FLERR, "Invalid fix nvt/npt/nph drag argument: {}", drag);
       iarg += 2;
     } else if (strcmp(arg[iarg],"ptemp") == 0) {
-      if (iarg+2 > narg) utils::missing_cmd_args(FLERR, fmt::format("fix {} ptemp", style), error);
+      if (iarg+2 > narg) utils::missing_cmd_args(FLERR, "fix nvt/npt/nph ptemp", error);
       p_temp = utils::numeric(FLERR,arg[iarg+1],false,lmp);
       p_temp_flag = 1;
-      if (p_temp <= 0.0) error->all(FLERR, "Invalid fix {} ptemp argument: {}", style, p_temp);
+      if (p_temp <= 0.0) error->all(FLERR, "Invalid fix nvt/npt/nph ptemp argument: {}", p_temp);
       iarg += 2;
     } else if (strcmp(arg[iarg],"dilate") == 0) {
-      if (iarg+2 > narg) utils::missing_cmd_args(FLERR, fmt::format("fix {} dilate", style), error);
+      if (iarg+2 > narg) utils::missing_cmd_args(FLERR, "fix nvt/npt/nph dilate", error);
       if (strcmp(arg[iarg+1],"all") == 0) allremap = 1;
       else {
         allremap = 0;
@@ -275,71 +279,67 @@ FixNH::FixNH(LAMMPS *lmp, int narg, char **arg) :
         id_dilate = utils::strdup(arg[iarg+1]);
         int idilate = group->find(id_dilate);
         if (idilate == -1)
-          error->all(FLERR,"Fix {} dilate group ID {} does not exist", style, id_dilate);
+          error->all(FLERR,"Fix nvt/npt/nph dilate group ID does not exist");
       }
       iarg += 2;
 
     } else if (strcmp(arg[iarg],"tchain") == 0) {
-      if (iarg+2 > narg) utils::missing_cmd_args(FLERR, fmt::format("fix {} tchain", style), error);
+      if (iarg+2 > narg) utils::missing_cmd_args(FLERR, "fix nvt/npt/nph tchain", error);
       mtchain = utils::inumeric(FLERR,arg[iarg+1],false,lmp);
       // used by FixNVTSllod to preserve non-default value
       mtchain_default_flag = 0;
-      if (mtchain < 1) error->all(FLERR, "Invalid fix {} tchain argument: {}", style, mtchain);
+      if (mtchain < 1) error->all(FLERR, "Invalid fix nvt/npt/nph tchain argument: {}", mtchain);
       iarg += 2;
     } else if (strcmp(arg[iarg],"pchain") == 0) {
-      if (iarg+2 > narg) utils::missing_cmd_args(FLERR, fmt::format("fix {} pchain", style), error);
+      if (iarg+2 > narg) utils::missing_cmd_args(FLERR, "fix nvt/npt/nph pchain", error);
       mpchain = utils::inumeric(FLERR,arg[iarg+1],false,lmp);
-      if (mpchain < 0) error->all(FLERR, "Invalid fix {} pchain argument: {}", style, mpchain);
+      if (mpchain < 0) error->all(FLERR, "Invalid fix nvt/npt/nph pchain argument: {}", mpchain);
       iarg += 2;
     } else if (strcmp(arg[iarg],"mtk") == 0) {
-      if (iarg+2 > narg) utils::missing_cmd_args(FLERR, fmt::format("fix {} mtk", style), error);
+      if (iarg+2 > narg) utils::missing_cmd_args(FLERR, "fix nvt/npt/nph mtk", error);
       mtk_flag = utils::logical(FLERR,arg[iarg+1],false,lmp);
       iarg += 2;
     } else if (strcmp(arg[iarg],"tloop") == 0) {
-      if (iarg+2 > narg) utils::missing_cmd_args(FLERR, fmt::format("fix {} tloop", style), error);
+      if (iarg+2 > narg) utils::missing_cmd_args(FLERR, "fix nvt/npt/nph tloop", error);
       nc_tchain = utils::inumeric(FLERR,arg[iarg+1],false,lmp);
-      if (nc_tchain < 0) error->all(FLERR, "Invalid fix {} tloop argument: {}", style, nc_tchain);
+      if (nc_tchain < 0) error->all(FLERR, "Invalid fix nvt/npt/nph tloop argument: {}", nc_tchain);
       iarg += 2;
     } else if (strcmp(arg[iarg],"ploop") == 0) {
-      if (iarg+2 > narg) utils::missing_cmd_args(FLERR, fmt::format("fix {} ploop", style), error);
+      if (iarg+2 > narg) utils::missing_cmd_args(FLERR, "fix nvt/npt/nph ploop", error);
       nc_pchain = utils::inumeric(FLERR,arg[iarg+1],false,lmp);
-      if (nc_pchain < 0) error->all(FLERR, "Invalid fix {} ploop argument: {}", style, nc_pchain);
+      if (nc_pchain < 0) error->all(FLERR, "Invalid fix nvt/npt/nph ploop argument: {}", nc_pchain);
       iarg += 2;
     } else if (strcmp(arg[iarg],"nreset") == 0) {
-      if (iarg+2 > narg) utils::missing_cmd_args(FLERR, fmt::format("fix {} nreset", style), error);
+      if (iarg+2 > narg) utils::missing_cmd_args(FLERR, "fix nvt/npt/nph nreset", error);
       nreset_h0 = utils::inumeric(FLERR,arg[iarg+1],false,lmp);
-      if (nreset_h0 < 0) error->all(FLERR, "Invalid fix {} nreset argument: {}", style, nreset_h0);
+      if (nreset_h0 < 0) error->all(FLERR, "Invalid fix nvt/npt/nph nreset argument: {}", nreset_h0);
       iarg += 2;
     } else if (strcmp(arg[iarg],"scalexy") == 0) {
-      if (iarg+2 > narg)
-        utils::missing_cmd_args(FLERR, fmt::format("fix {} scalexy", style), error);
+      if (iarg+2 > narg) utils::missing_cmd_args(FLERR, "fix nvt/npt/nph scalexy", error);
       scalexy = utils::logical(FLERR,arg[iarg+1],false,lmp);
       iarg += 2;
     } else if (strcmp(arg[iarg],"scalexz") == 0) {
-      if (iarg+2 > narg)
-        utils::missing_cmd_args(FLERR, fmt::format("fix {} scalexz", style), error);
+      if (iarg+2 > narg) utils::missing_cmd_args(FLERR, "fix nvt/npt/nph scalexz", error);
       scalexz = utils::logical(FLERR,arg[iarg+1],false,lmp);
       iarg += 2;
     } else if (strcmp(arg[iarg],"scaleyz") == 0) {
-      if (iarg+2 > narg)
-        utils::missing_cmd_args(FLERR, fmt::format("fix {} scaleyz", style), error);
+      if (iarg+2 > narg) utils::missing_cmd_args(FLERR, "fix nvt/npt/nph scaleyz", error);
       scaleyz = utils::logical(FLERR,arg[iarg+1],false,lmp);
       iarg += 2;
     } else if (strcmp(arg[iarg],"flip") == 0) {
-      if (iarg+2 > narg) utils::missing_cmd_args(FLERR, fmt::format("fix {} flip", style), error);
+      if (iarg+2 > narg) utils::missing_cmd_args(FLERR, "fix nvt/npt/nph flip", error);
       flipflag = utils::logical(FLERR,arg[iarg+1],false,lmp);
       iarg += 2;
     } else if (strcmp(arg[iarg],"update") == 0) {
-      if (iarg+2 > narg) utils::missing_cmd_args(FLERR, fmt::format("fix {} update", style), error);
+      if (iarg+2 > narg) utils::missing_cmd_args(FLERR, "fix nvt/npt/nph update", error);
       if (strcmp(arg[iarg+1],"dipole") == 0) dipole_flag = 1;
       else if (strcmp(arg[iarg+1],"dipole/dlm") == 0) {
         dipole_flag = 1;
         dlm_flag = 1;
-      } else error->all(FLERR, "Invalid fix {} update argument: {}", style, arg[iarg+1]);
+      } else error->all(FLERR, "Invalid fix nvt/npt/nph update argument: {}", arg[iarg+1]);
       iarg += 2;
     } else if (strcmp(arg[iarg],"fixedpoint") == 0) {
-      if (iarg+4 > narg)
-        utils::missing_cmd_args(FLERR, fmt::format("fix {} fixedpoint", style), error);
+      if (iarg+4 > narg) utils::missing_cmd_args(FLERR, "fix nvt/npt/nph fixedpoint", error);
       fixedpoint[0] = utils::numeric(FLERR,arg[iarg+1],false,lmp);
       fixedpoint[1] = utils::numeric(FLERR,arg[iarg+2],false,lmp);
       fixedpoint[2] = utils::numeric(FLERR,arg[iarg+3],false,lmp);
@@ -359,90 +359,95 @@ FixNH::FixNH(LAMMPS *lmp, int narg, char **arg) :
     } else if (strcmp(arg[iarg],"ext") == 0) {
       iarg += 2;
 
-    // keyword psllod is parsed in fix/nvt/sllod
-
-    } else if (strcmp(arg[iarg],"psllod") == 0) {
-      iarg += 2;
-
-    } else error->all(FLERR,"Unknown fix {} keyword: {}", style, arg[iarg]);
+    } else error->all(FLERR,"Unknown fix nvt/npt/nph keyword: {}", arg[iarg]);
   }
 
   // error checks
 
   if (dimension == 2 && (p_flag[2] || p_flag[3] || p_flag[4]))
-    error->all(FLERR,"Invalid fix {} command for a 2d simulation", style);
+    error->all(FLERR,"Invalid fix nvt/npt/nph command for a 2d simulation");
   if (dimension == 2 && (pcouple == YZ || pcouple == XZ))
-    error->all(FLERR,"Invalid fix {} command for a 2d simulation", style);
+    error->all(FLERR,"Invalid fix nvt/npt/nph command for a 2d simulation");
   if (dimension == 2 && (scalexz == 1 || scaleyz == 1 ))
-    error->all(FLERR,"Invalid fix {} command for a 2d simulation", style);
+    error->all(FLERR,"Invalid fix nvt/npt/nph command for a 2d simulation");
 
   if (pcouple == XYZ && (p_flag[0] == 0 || p_flag[1] == 0))
-    error->all(FLERR,"Invalid fix {} command pressure settings", style);
+    error->all(FLERR,"Invalid fix nvt/npt/nph command pressure settings");
   if (pcouple == XYZ && dimension == 3 && p_flag[2] == 0)
-    error->all(FLERR,"Invalid fix {} command pressure settings", style);
+    error->all(FLERR,"Invalid fix nvt/npt/nph command pressure settings");
   if (pcouple == XY && (p_flag[0] == 0 || p_flag[1] == 0))
-    error->all(FLERR,"Invalid fix {} command pressure settings", style);
+    error->all(FLERR,"Invalid fix nvt/npt/nph command pressure settings");
   if (pcouple == YZ && (p_flag[1] == 0 || p_flag[2] == 0))
-    error->all(FLERR,"Invalid fix {} command pressure settings", style);
+    error->all(FLERR,"Invalid fix nvt/npt/nph command pressure settings");
   if (pcouple == XZ && (p_flag[0] == 0 || p_flag[2] == 0))
-    error->all(FLERR,"Invalid fix {} command pressure settings", style);
+    error->all(FLERR,"Invalid fix nvt/npt/nph command pressure settings");
 
   // require periodicity in tensile dimension
 
   if (p_flag[0] && domain->xperiodic == 0)
-    error->all(FLERR,"Cannot use fix {} on a non-periodic x dimension", style);
+    error->all(FLERR,"Cannot use fix nvt/npt/nph on a non-periodic dimension");
   if (p_flag[1] && domain->yperiodic == 0)
-    error->all(FLERR,"Cannot use fix {} on a non-periodic y dimension", style);
+    error->all(FLERR,"Cannot use fix nvt/npt/nph on a non-periodic dimension");
   if (p_flag[2] && domain->zperiodic == 0)
-    error->all(FLERR,"Cannot use fix {} on a non-periodic z dimension", style);
+    error->all(FLERR,"Cannot use fix nvt/npt/nph on a non-periodic dimension");
 
   // require periodicity in 2nd dim of off-diagonal tilt component
 
   if (p_flag[3] && domain->zperiodic == 0)
-    error->all(FLERR, "Cannot use fix {} on a 2nd non-periodic dimension", style);
+    error->all(FLERR,
+               "Cannot use fix nvt/npt/nph on a 2nd non-periodic dimension");
   if (p_flag[4] && domain->zperiodic == 0)
-    error->all(FLERR, "Cannot use fix {} on a 2nd non-periodic dimension", style);
+    error->all(FLERR,
+               "Cannot use fix nvt/npt/nph on a 2nd non-periodic dimension");
   if (p_flag[5] && domain->yperiodic == 0)
-    error->all(FLERR, "Cannot use fix {} on a 2nd non-periodic dimension", style);
+    error->all(FLERR,
+               "Cannot use fix nvt/npt/nph on a 2nd non-periodic dimension");
 
   if (scaleyz == 1 && domain->zperiodic == 0)
-    error->all(FLERR,"Cannot use fix {} with yz scaling when z is non-periodic dimension", style);
+    error->all(FLERR,"Cannot use fix nvt/npt/nph "
+               "with yz scaling when z is non-periodic dimension");
   if (scalexz == 1 && domain->zperiodic == 0)
-    error->all(FLERR,"Cannot use fix {} with xz scaling when z is non-periodic dimension", style);
+    error->all(FLERR,"Cannot use fix nvt/npt/nph "
+               "with xz scaling when z is non-periodic dimension");
   if (scalexy == 1 && domain->yperiodic == 0)
-    error->all(FLERR,"Cannot use fix {} with xy scaling when y is non-periodic dimension", style);
+    error->all(FLERR,"Cannot use fix nvt/npt/nph "
+               "with xy scaling when y is non-periodic dimension");
 
   if (p_flag[3] && scaleyz == 1)
-    error->all(FLERR,"Cannot use fix {} with both yz dynamics and yz scaling", style);
+    error->all(FLERR,"Cannot use fix nvt/npt/nph with "
+               "both yz dynamics and yz scaling");
   if (p_flag[4] && scalexz == 1)
-    error->all(FLERR,"Cannot use fix {} with both xz dynamics and xz scaling", style);
+    error->all(FLERR,"Cannot use fix nvt/npt/nph with "
+               "both xz dynamics and xz scaling");
   if (p_flag[5] && scalexy == 1)
-    error->all(FLERR,"Cannot use fix {} with both xy dynamics and xy scaling", style);
+    error->all(FLERR,"Cannot use fix nvt/npt/nph with "
+               "both xy dynamics and xy scaling");
 
   if (!domain->triclinic && (p_flag[3] || p_flag[4] || p_flag[5]))
-    error->all(FLERR,"Can not specify Pxy/Pxz/Pyz in fix {} with non-triclinic box", style);
+    error->all(FLERR,"Can not specify Pxy/Pxz/Pyz in "
+               "fix nvt/npt/nph with non-triclinic box");
 
   if (pcouple == XYZ && dimension == 3 &&
       (p_start[0] != p_start[1] || p_start[0] != p_start[2] ||
        p_stop[0] != p_stop[1] || p_stop[0] != p_stop[2] ||
        p_period[0] != p_period[1] || p_period[0] != p_period[2]))
-    error->all(FLERR,"Invalid fix {} pressure settings", style);
+    error->all(FLERR,"Invalid fix nvt/npt/nph pressure settings");
   if (pcouple == XYZ && dimension == 2 &&
       (p_start[0] != p_start[1] || p_stop[0] != p_stop[1] ||
        p_period[0] != p_period[1]))
-    error->all(FLERR,"Invalid fix {} pressure settings", style);
+    error->all(FLERR,"Invalid fix nvt/npt/nph pressure settings");
   if (pcouple == XY &&
       (p_start[0] != p_start[1] || p_stop[0] != p_stop[1] ||
        p_period[0] != p_period[1]))
-    error->all(FLERR,"Invalid fix {} pressure settings", style);
+    error->all(FLERR,"Invalid fix nvt/npt/nph pressure settings");
   if (pcouple == YZ &&
       (p_start[1] != p_start[2] || p_stop[1] != p_stop[2] ||
        p_period[1] != p_period[2]))
-    error->all(FLERR,"Invalid fix {} pressure settings", style);
+    error->all(FLERR,"Invalid fix nvt/npt/nph pressure settings");
   if (pcouple == XZ &&
       (p_start[0] != p_start[2] || p_stop[0] != p_stop[2] ||
        p_period[0] != p_period[2]))
-    error->all(FLERR,"Invalid fix {} pressure settings", style);
+    error->all(FLERR,"Invalid fix nvt/npt/nph pressure settings");
 
   if (dipole_flag) {
     if (!atom->sphere_flag)
@@ -458,11 +463,11 @@ FixNH::FixNH(LAMMPS *lmp, int narg, char **arg) :
       (p_flag[3] && p_period[3] <= 0.0) ||
       (p_flag[4] && p_period[4] <= 0.0) ||
       (p_flag[5] && p_period[5] <= 0.0))
-    error->all(FLERR,"Fix {} damping parameters must be > 0.0", style);
+    error->all(FLERR,"Fix nvt/npt/nph damping parameters must be > 0.0");
 
   // check that ptemp is not defined with a thermostat
   if (tstat_flag && p_temp_flag)
-    error->all(FLERR,"Thermostat in fix {} is incompatible with ptemp command", style);
+    error->all(FLERR,"Thermostat in fix nvt/npt/nph is incompatible with ptemp command");
 
   // set pstat_flag and box change and restart_pbc variables
 
@@ -634,7 +639,7 @@ void FixNH::init()
   if (allremap == 0) {
     int idilate = group->find(id_dilate);
     if (idilate == -1)
-      error->all(FLERR,"Fix {} dilate group ID {} does not exist", style, id_dilate);
+      error->all(FLERR,"Fix nvt/npt/nph dilate group ID does not exist");
     dilate_group_bit = group->bitmask[idilate];
   }
 
@@ -647,21 +652,23 @@ void FixNH::init()
         if ((p_flag[0] && dimflag[0]) || (p_flag[1] && dimflag[1]) ||
             (p_flag[2] && dimflag[2]) || (p_flag[3] && dimflag[3]) ||
             (p_flag[4] && dimflag[4]) || (p_flag[5] && dimflag[5]))
-          error->all(FLERR,"Cannot use fix {} and fix deform on "
-                     "same component of stress tensor", style);
+          error->all(FLERR,"Cannot use fix npt and fix deform on "
+                     "same component of stress tensor");
       }
 
   // set temperature and pressure ptrs
 
   temperature = modify->get_compute_by_id(id_temp);
-  if (!temperature) error->all(FLERR,"Temperature ID {} for fix {} does not exist", id_temp, style);
+  if (!temperature)
+    error->all(FLERR,"Temperature ID {} for fix nvt/npt does not exist", id_temp);
 
   if (temperature->tempbias) which = BIAS;
   else which = NOBIAS;
 
   if (pstat_flag) {
     pressure = modify->get_compute_by_id(id_press);
-    if (!pressure) error->all(FLERR,"Pressure ID {} for fix {} does not exist", id_press, style);
+    if (!pressure)
+      error->all(FLERR,"Pressure ID {} for fix npt/nph does not exist", id_press);
   }
 
   // set timesteps and frequencies
@@ -766,7 +773,8 @@ void FixNH::setup(int /*vflag*/)
       } else {
         t0 = temperature->compute_scalar();
         if (t0 < EPSILON)
-          error->all(FLERR,"Current temperature too close to zero, consider using ptemp keyword");
+          error->all(FLERR,"Current temperature too close to zero, "
+                     "consider using ptemp setting");
       }
     }
     t_target = t0;
@@ -1222,8 +1230,8 @@ void FixNH::remap()
       domain->xz > TILTMAX*domain->xprd ||
       domain->xy < -TILTMAX*domain->xprd ||
       domain->xy > TILTMAX*domain->xprd)
-    error->all(FLERR,"Fix {} has tilted box too far in one step - "
-               "periodic cell is too far from equilibrium state", style);
+    error->all(FLERR,"Fix npt/nph has tilted box too far in one step - "
+               "periodic cell is too far from equilibrium state");
 
   domain->set_global_box();
   domain->set_local_box();
@@ -1406,7 +1414,8 @@ int FixNH::modify_param(int narg, char **arg)
       error->all(FLERR,"Could not find fix_modify temperature ID {}", arg[1]);
 
     if (temperature->tempflag == 0)
-      error->all(FLERR, "Fix_modify temperature ID {} does not compute temperature", arg[1]);
+      error->all(FLERR,
+                 "Fix_modify temperature ID does not compute temperature");
     if (temperature->igroup != 0 && comm->me == 0)
       error->warning(FLERR,"Temperature for fix modify is not for group all");
 
@@ -1422,8 +1431,8 @@ int FixNH::modify_param(int narg, char **arg)
     return 2;
 
   } else if (strcmp(arg[0],"press") == 0) {
-    if (narg < 2) utils::missing_cmd_args(FLERR,"fix_modify press", error);
-    if (!pstat_flag) error->all(FLERR,"Fix_modify press command without a barostat");
+    if (narg < 2) error->all(FLERR,"Illegal fix_modify command");
+    if (!pstat_flag) error->all(FLERR,"Illegal fix_modify command");
     if (pcomputeflag) {
       modify->delete_compute(id_press);
       pcomputeflag = 0;
@@ -1435,7 +1444,7 @@ int FixNH::modify_param(int narg, char **arg)
     if (!pressure) error->all(FLERR,"Could not find fix_modify pressure ID {}", arg[1]);
 
     if (pressure->pressflag == 0)
-      error->all(FLERR,"Fix_modify pressure ID {} does not compute pressure", arg[1]);
+      error->all(FLERR,"Fix_modify pressure ID does not compute pressure");
     return 2;
   }
 

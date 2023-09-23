@@ -95,16 +95,6 @@ static const char cite_neigh_multi[] =
   "          Detection Applied to Investigate the Quasi-Static Limit},\n"
   " journal = {Computational Particle Mechanics},\n"
   " year = {2020}\n"
-  "@article{Monti2022,\n"
-  " author = {Monti, Joseph M. and Clemmer, Joel T. and Srivastava, \n"
-  "           Ishan and Silbert, Leonardo E. and Grest, Gary S. \n"
-  "           and Lechman, Jeremy B.},\n"
-  " title = {Large-scale frictionless jamming with power-law particle \n"
-  "          size distributions},\n"
-  " journal = {Phys. Rev. E},\n"
-  " volume = {106}\n"
-  " issue = {3}\n"
-  " year = {2022}\n"
   "}\n\n";
 
 // template for factory functions:
@@ -226,10 +216,6 @@ pairclass(nullptr), pairnames(nullptr), pairmasks(nullptr)
   // Kokkos setting
 
   copymode = 0;
-
-  // GPU setting
-
-  overlap_topo = 0;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -307,7 +293,6 @@ void Neighbor::init()
 {
   int i,j,n;
 
-  overlap_topo = 0;
   ncalls = ndanger = 0;
   dimension = domain->dimension;
   triclinic = domain->triclinic;
@@ -550,7 +535,6 @@ void Neighbor::init()
       int flag=0;
       for (int isub=0; isub < ph->nstyles; ++isub) {
         if (force->pair_match("amoeba",0,isub)
-            || force->pair_match("hippo",0,isub)
             || force->pair_match("coul/wolf",0,isub)
             || force->pair_match("coul/dsf",0,isub)
             || force->pair_match("coul/exclude",0)
@@ -561,7 +545,6 @@ void Neighbor::init()
         special_flag[1] = special_flag[2] = special_flag[3] = 2;
     } else {
       if (force->pair_match("amoeba",0)
-          || force->pair_match("hippo",0)
           || force->pair_match("coul/wolf",0)
           || force->pair_match("coul/dsf",0)
           || force->pair_match("coul/exclude",0)
@@ -1212,7 +1195,7 @@ void Neighbor::morph_skip()
 
     // these lists are created other ways, no need for skipping
     // halffull list and its full parent may both skip,
-    //   but are checked to ensure matching skip info
+    //   but are checked to insure matching skip info
 
     if (irq->halffull) continue;
     if (irq->copy) continue;
@@ -2448,9 +2431,8 @@ void Neighbor::build(int topoflag)
   }
 
   // build topology lists for bonds/angles/etc
-  // skip if GPU package styles will call it explicitly to overlap with GPU computation.
 
-  if ((atom->molecular != Atom::ATOMIC) && topoflag && !overlap_topo) build_topology();
+  if ((atom->molecular != Atom::ATOMIC) && topoflag) build_topology();
 }
 
 /* ----------------------------------------------------------------------
@@ -2514,7 +2496,7 @@ void Neighbor::build_one(class NeighList *mylist, int preflag)
   // if this is copy list and parent is occasional list,
   // or this is halffull and parent is occasional list,
   // or this is skip list and parent is occasional list,
-  // ensure parent is current
+  // insure parent is current
 
   if (mylist->listcopy && mylist->listcopy->occasional)
     build_one(mylist->listcopy,preflag);
@@ -2831,15 +2813,6 @@ void Neighbor::exclusion_group_group_delete(int group1, int group2)
 int Neighbor::exclude_setting()
 {
   return exclude;
-}
-
-/* ----------------------------------------------------------------------
-   If nonzero, call build_topology from GPU styles instead to overlap comp
-------------------------------------------------------------------------- */
-
-void Neighbor::set_overlap_topo(int s)
-{
-  overlap_topo = s;
 }
 
 /* ----------------------------------------------------------------------

@@ -1,3 +1,4 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://www.lammps.org/, Sandia National Laboratories
@@ -50,6 +51,7 @@ void NStencilFullMulti3d::create()
   int n = ncollections;
   double cutsq;
 
+
   for (icollection = 0; icollection < n; icollection++) {
     for (jcollection = 0; jcollection < n; jcollection++) {
       if (flag_skip_multi[icollection][jcollection]) {
@@ -74,8 +76,9 @@ void NStencilFullMulti3d::create()
       for (k = -sz; k <= sz; k++)
         for (j = -sy; j <= sy; j++)
           for (i = -sx; i <= sx; i++)
-            if (bin_distance_multi(i, j, k, bin_collection) < cutsq)
-              stencil_multi[icollection][jcollection][ns++] = k * mbiny * mbinx + j * mbinx + i;
+                if (bin_distance_multi(i,j,k,bin_collection) < cutsq)
+                  stencil_multi[icollection][jcollection][ns++] =
+                      k*mbiny*mbinx + j*mbinx + i;
 
       nstencil_multi[icollection][jcollection] = ns;
     }

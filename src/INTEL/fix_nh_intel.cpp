@@ -54,13 +54,6 @@ FixNHIntel::FixNHIntel(LAMMPS *lmp, int narg, char **arg) :
 
 /* ---------------------------------------------------------------------- */
 
-FixNHIntel::~FixNHIntel()
-{
-  memory->destroy(_dtfm);
-}
-
-/* ---------------------------------------------------------------------- */
-
 void FixNHIntel::setup(int vflag)
 {
   FixNH::setup(vflag);

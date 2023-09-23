@@ -386,7 +386,7 @@ void PairLocalDensity::coeff(int narg, char **arg)
 
   if (narg != 3) error->all(FLERR,"Incorrect args for pair coefficients");
 
-  // ensure I,J args are * *
+  // insure I,J args are * *
 
   if (strcmp(arg[0],"*") != 0 || strcmp(arg[1],"*") != 0)
     error->all(FLERR,"Incorrect args for pair coefficients");

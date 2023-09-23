@@ -275,7 +275,7 @@ void ComputeSNAAtom::compute_peratom()
       const int* const jlist = firstneigh[i];
       const int jnum = numneigh[i];
 
-      // ensure rij, inside, and typej  are of size jnum
+      // insure rij, inside, and typej  are of size jnum
 
       snaptr->grow_rij(jnum);
 

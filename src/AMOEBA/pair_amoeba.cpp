@@ -20,7 +20,7 @@
 #include "domain.h"
 #include "error.h"
 #include "fix.h"
-#include "fix_store_atom.h"
+#include "fix_store_peratom.h"
 #include "force.h"
 #include "group.h"
 #include "math_special.h"
@@ -29,7 +29,6 @@
 #include "my_page.h"
 #include "neigh_list.h"
 #include "neighbor.h"
-#include "timer.h"
 #include "update.h"
 
 #include <cmath>
@@ -48,7 +47,6 @@ enum{MUTUAL,OPT,TCG,DIRECT};
 enum{GEAR,ASPC,LSQR};
 
 #define DELTASTACK 16
-#define DEBUG_AMOEBA 0
 
 /* ---------------------------------------------------------------------- */
 
@@ -86,10 +84,6 @@ PairAmoeba::PairAmoeba(LAMMPS *lmp) : Pair(lmp)
 
   cmp = fmp = nullptr;
   cphi = fphi = nullptr;
-
-  _moduli_array = nullptr;
-  _moduli_bsarray = nullptr;
-  _nfft_max = 0;
 
   poli = nullptr;
   conj = conjp = nullptr;
@@ -233,9 +227,6 @@ PairAmoeba::~PairAmoeba()
   memory->destroy(fphidp);
   memory->destroy(cphidp);
 
-  memory->destroy(_moduli_array);
-  memory->destroy(_moduli_bsarray);
-
   memory->destroy(thetai1);
   memory->destroy(thetai2);
   memory->destroy(thetai3);
@@ -358,22 +349,12 @@ void PairAmoeba::compute(int eflag, int vflag)
   if (update->ntimestep <= update->beginstep+1) {
     time_init = time_hal = time_repulse = time_disp = time_mpole = 0.0;
     time_induce = time_polar = time_qxfer = 0.0;
-
-    time_mpole_rspace = time_mpole_kspace = 0.0;
-    time_direct_rspace = time_direct_kspace = 0.0;
-    time_mutual_rspace = time_mutual_kspace = 0.0;
-    time_polar_rspace = time_polar_kspace = 0.0;
-
-    time_grid_uind = time_fphi_uind = 0.0;
-    if (ic_kspace) {
-      ic_kspace->time_fft = 0.0;
-    }
   }
 
   double time0,time1,time2,time3,time4,time5,time6,time7,time8;
 
-  if (timer->has_sync()) MPI_Barrier(world);
-  time0 = platform::walltime();
+  MPI_Barrier(world);
+  time0 = MPI_Wtime();
 
   // if reneighboring step:
   // augment neighbor list to include 1-5 neighbor flags
@@ -429,7 +410,8 @@ void PairAmoeba::compute(int eflag, int vflag)
   comm->forward_comm(this);
 
   if (amoeba) pbc_xred();
-  time1 = platform::walltime();
+
+  time1 = MPI_Wtime();
 
   // ----------------------------------------
   // compute components of force field
@@ -438,22 +420,22 @@ void PairAmoeba::compute(int eflag, int vflag)
   // buffered 14-7 Vdwl, pairwise
 
   if (amoeba && hal_flag) hal();
-  time2 = platform::walltime();
+  time2 = MPI_Wtime();
 
   // Pauli repulsion, pairwise
 
   if (!amoeba && repulse_flag) repulsion();
-  time3 = platform::walltime();
+  time3 = MPI_Wtime();
 
   // Ewald dispersion, pairwise and long range
 
   if (!amoeba && (disp_rspace_flag || disp_kspace_flag)) dispersion();
-  time4 = platform::walltime();
+  time4 = MPI_Wtime();
 
   // multipole, pairwise and long range
 
   if (mpole_rspace_flag || mpole_kspace_flag) multipole();
-  time5 = platform::walltime();
+  time5 = MPI_Wtime();
 
   // induced dipoles, interative CG relaxation
   // communicate induce() output values needed by ghost atoms
@@ -463,17 +445,17 @@ void PairAmoeba::compute(int eflag, int vflag)
     cfstyle = INDUCE;
     comm->forward_comm(this);
   }
-  time6 = platform::walltime();
+  time6 = MPI_Wtime();
 
   // dipoles, pairwise and long range
 
   if (polar_rspace_flag || polar_kspace_flag) polar();
-  time7 = platform::walltime();
+  time7 = MPI_Wtime();
 
   // charge transfer, pairwise
 
   if (!amoeba && qxfer_flag) charge_transfer();
-  time8 = platform::walltime();
+  time8 = MPI_Wtime();
 
   // store energy components for output by compute pair command
 
@@ -536,44 +518,6 @@ void PairAmoeba::finish()
   MPI_Allreduce(&time_qxfer,&ave,1,MPI_DOUBLE,MPI_SUM,world);
   time_qxfer = ave/comm->nprocs;
 
-  #if DEBUG_AMOEBA
-  // real-space/kspace breakdown
-  MPI_Allreduce(&time_mpole_rspace,&ave,1,MPI_DOUBLE,MPI_SUM,world);
-  time_mpole_rspace = ave/comm->nprocs;
-
-  MPI_Allreduce(&time_mpole_kspace,&ave,1,MPI_DOUBLE,MPI_SUM,world);
-  time_mpole_kspace = ave/comm->nprocs;
-
-  MPI_Allreduce(&time_direct_rspace,&ave,1,MPI_DOUBLE,MPI_SUM,world);
-  time_direct_rspace = ave/comm->nprocs;
-
-  MPI_Allreduce(&time_direct_kspace,&ave,1,MPI_DOUBLE,MPI_SUM,world);
-  time_direct_kspace = ave/comm->nprocs;
-
-  MPI_Allreduce(&time_mutual_rspace,&ave,1,MPI_DOUBLE,MPI_SUM,world);
-  time_mutual_rspace = ave/comm->nprocs;
-
-  MPI_Allreduce(&time_mutual_kspace,&ave,1,MPI_DOUBLE,MPI_SUM,world);
-  time_mutual_kspace = ave/comm->nprocs;
-
-  MPI_Allreduce(&time_polar_rspace,&ave,1,MPI_DOUBLE,MPI_SUM,world);
-  time_polar_rspace = ave/comm->nprocs;
-
-  MPI_Allreduce(&time_polar_kspace,&ave,1,MPI_DOUBLE,MPI_SUM,world);
-  time_polar_kspace = ave/comm->nprocs;
-
-  MPI_Allreduce(&time_grid_uind,&ave,1,MPI_DOUBLE,MPI_SUM,world);
-  time_grid_uind = ave/comm->nprocs;
-
-  MPI_Allreduce(&time_fphi_uind,&ave,1,MPI_DOUBLE,MPI_SUM,world);
-  time_fphi_uind = ave/comm->nprocs;
-
-  double time_mutual_fft = 0;
-  if (ic_kspace) time_mutual_fft = ic_kspace->time_fft;
-  MPI_Allreduce(&time_mutual_fft,&ave,1,MPI_DOUBLE,MPI_SUM,world);
-  time_mutual_fft = ave/comm->nprocs;
-  #endif // DEBUG_AMOEBA
-
   double time_total = (time_init + time_hal + time_repulse + time_disp +
                        time_mpole + time_induce + time_polar + time_qxfer) / 100.0;
 
@@ -590,27 +534,8 @@ void PairAmoeba::finish()
     utils::logmesg(lmp,"  Induce  time: {:<12.6g} {:6.2f}%\n", time_induce, time_induce/time_total);
     utils::logmesg(lmp,"  Polar   time: {:<12.6g} {:6.2f}%\n", time_polar, time_polar/time_total);
     if (!amoeba)
-      utils::logmesg(lmp,"  Qxfer   time: {:.6g} {:.6g}\n", time_qxfer, time_qxfer/time_total);
-    utils::logmesg(lmp,"  Total   time: {:.6g}\n",time_total * 100.0);
-
-    #if DEBUG_AMOEBA
-    double rspace_time = time_mpole_rspace + time_direct_rspace + time_mutual_rspace + time_polar_rspace;
-    double kspace_time = time_mpole_kspace + time_direct_kspace + time_mutual_kspace + time_polar_kspace;
-
-    utils::logmesg(lmp,"    Real-space timing breakdown: {:.3g}%\n", rspace_time/time_total);
-    utils::logmesg(lmp,"      Mpole  time: {:.6g} {:.3g}%\n", time_mpole_rspace, time_mpole_rspace/time_total);
-    utils::logmesg(lmp,"      Direct time: {:.6g} {:.3g}%\n", time_direct_rspace, time_direct_rspace/time_total);
-    utils::logmesg(lmp,"      Mutual time: {:.6g} {:.3g}%\n", time_mutual_rspace, time_mutual_rspace/time_total);
-    utils::logmesg(lmp,"      Polar  time: {:.6g} {:.3g}%\n", time_polar_rspace, time_polar_rspace/time_total);
-    utils::logmesg(lmp,"    K-space timing breakdown   : {:.3g}%\n", kspace_time/time_total);
-    utils::logmesg(lmp,"      Mpole  time: {:.6g} {:.3g}%\n", time_mpole_kspace, time_mpole_kspace/time_total);
-    utils::logmesg(lmp,"      Direct time: {:.6g} {:.3g}%\n", time_direct_kspace, time_direct_kspace/time_total);
-    utils::logmesg(lmp,"      Mutual time: {:.6g} {:.3g}%\n", time_mutual_kspace, time_mutual_kspace/time_total);
-    utils::logmesg(lmp,"       - Grid    : {:.6g} {:.3g}%\n", time_grid_uind, time_grid_uind/time_total);
-    utils::logmesg(lmp,"       - FFT     : {:.6g} {:.3g}%\n", time_mutual_fft, time_mutual_fft/time_total);
-    utils::logmesg(lmp,"       - Interp  : {:.6g} {:.3g}%\n", time_fphi_uind, time_fphi_uind/time_total);
-    utils::logmesg(lmp,"      Polar  time: {:.6g} {:.3g}%\n", time_polar_kspace, time_polar_kspace/time_total);
-    #endif
+      utils::logmesg(lmp,"  Qxfer   time: {:<12.6g} {:6.2f}%\n", time_qxfer, time_qxfer/time_total);
+    utils::logmesg(lmp,"  Total   time: {:<12.6g}\n",time_total * 100.0);
   }
 }
 
@@ -861,8 +786,8 @@ void PairAmoeba::init_style()
   Fix *myfix;
   if (first_flag) {
     id_pole = utils::strdup("AMOEBA_pole");
-    myfix = modify->add_fix(fmt::format("{} {} STORE/ATOM 13 0 0 1",id_pole,group->names[0]));
-    fixpole = dynamic_cast<FixStoreAtom *>(myfix);
+    myfix = modify->add_fix(fmt::format("{} {} STORE/PERATOM 1 13",id_pole,group->names[0]));
+    fixpole = dynamic_cast<FixStorePeratom *>(myfix);
   }
 
   // creation of per-atom storage
@@ -873,14 +798,14 @@ void PairAmoeba::init_style()
 
   if (first_flag && use_pred) {
     id_udalt = utils::strdup("AMOEBA_udalt");
-    myfix = modify->add_fix(fmt::format("{} {} STORE/ATOM {} 3 0 1",
+    myfix = modify->add_fix(fmt::format("{} {} STORE/PERATOM 1 {} 3",
                                         id_udalt, group->names[0], maxualt));
-    fixudalt = dynamic_cast<FixStoreAtom *>(myfix);
+    fixudalt = dynamic_cast<FixStorePeratom *>(myfix);
 
     id_upalt = utils::strdup("AMOEBA_upalt");
-    myfix = modify->add_fix(fmt::format("{} {} STORE/ATOM {} 3 0 1",
+    myfix = modify->add_fix(fmt::format("{} {} STORE/PERATOM 1 {} 3",
                                         id_upalt, group->names[0], maxualt));
-    fixupalt = dynamic_cast<FixStoreAtom *>(myfix);
+    fixupalt = dynamic_cast<FixStorePeratom *>(myfix);
   }
 
   // create pages for storing pairwise data:
@@ -902,7 +827,7 @@ void PairAmoeba::init_style()
 
   // initialize KSpace Ewald settings and FFTs and parallel grid objects
   // Coulombic grid is used with two orders: bseorder and bsporder
-  //   so need two Grid3d instantiations for ghost comm
+  //   so need two GridComm instantiations for ghost comm
 
   if (first_flag) {
     kewald();
@@ -995,21 +920,21 @@ void PairAmoeba::init_style()
   if (id_pole) {
     myfix = modify->get_fix_by_id(id_pole);
     if (!myfix)
-      error->all(FLERR,"Could not find internal pair amoeba fix STORE/ATOM id {}", id_pole);
-    fixpole = dynamic_cast<FixStoreAtom *>(myfix);
+      error->all(FLERR,"Could not find internal pair amoeba fix STORE/PERATOM id {}", id_pole);
+    fixpole = dynamic_cast<FixStorePeratom *>(myfix);
 
   }
 
   if (id_udalt) {
     myfix = modify->get_fix_by_id(id_udalt);
     if (!myfix)
-      error->all(FLERR,"Could not find internal pair amoeba fix STORE/ATOM id {}", id_udalt);
-    fixudalt = dynamic_cast<FixStoreAtom *>(myfix);
+      error->all(FLERR,"Could not find internal pair amoeba fix STORE/PERATOM id {}", id_udalt);
+    fixudalt = dynamic_cast<FixStorePeratom *>(myfix);
 
     myfix = modify->get_fix_by_id(id_upalt);
     if (!myfix)
-      error->all(FLERR,"Could not find internal pair amoeba fix STORE/ATOM id {}", id_upalt);
-    fixupalt = dynamic_cast<FixStoreAtom *>(myfix);
+      error->all(FLERR,"Could not find internal pair amoeba fix STORE/PERATOM id {}", id_upalt);
+    fixupalt = dynamic_cast<FixStorePeratom *>(myfix);
   }
 
   // assign hydrogen neighbors (redID) to each owned atom
@@ -1489,64 +1414,37 @@ void PairAmoeba::unpack_reverse_comm(int n, int *list, double *buf)
 }
 
 /* ----------------------------------------------------------------------
-   subset of FFT grids assigned to each proc may have changed
-   notify each instance of AmoebaConvolution class
-   called by load balancer when proc subdomains are adjusted
-------------------------------------------------------------------------- */
-
-void PairAmoeba::reset_grid()
-{
-  if (use_ewald) {
-    m_kspace->reset_grid();
-    p_kspace->reset_grid();
-    pc_kspace->reset_grid();
-    i_kspace->reset_grid();
-    ic_kspace->reset_grid();
-  }
-  if (use_dewald) d_kspace->reset_grid();
-
-  // qfac is shared by induce and polar
-  // gridfft1 is copy of FFT grid used within polar
-
-  memory->destroy(qfac);
-  memory->destroy(gridfft1);
-  int nmine = p_kspace->nfft_owned;
-  memory->create(qfac,nmine,"ameoba/induce:qfac");
-  memory->create(gridfft1,2*nmine,"amoeba/polar:gridfft1");
-}
-
-/* ----------------------------------------------------------------------
    pack own values to buf to send to another proc
 ------------------------------------------------------------------------- */
 
-void PairAmoeba::pack_forward_grid(int which, void *vbuf, int nlist, int *list)
+void PairAmoeba::pack_forward_grid(int flag, void *vbuf, int nlist, int *list)
 {
   FFT_SCALAR *buf = (FFT_SCALAR *) vbuf;
 
-  if (which == MPOLE_GRID) {
+  if (flag == MPOLE_GRID) {
     FFT_SCALAR *src = m_kspace->grid_brick_start;
     for (int i = 0; i < nlist; i++)
       buf[i] = src[list[i]];
-  } else if (which == POLAR_GRID) {
+  } else if (flag == POLAR_GRID) {
     FFT_SCALAR *src = p_kspace->grid_brick_start;
     for (int i = 0; i < nlist; i++)
       buf[i] = src[list[i]];
-  } else if (which == POLAR_GRIDC) {
+  } else if (flag == POLAR_GRIDC) {
     FFT_SCALAR *src = pc_kspace->grid_brick_start;
     int n = 0;
     for (int i = 0; i < nlist; i++) {
       buf[n++] = src[2*list[i]];
       buf[n++] = src[2*list[i]+1];
     }
-  } else if (which == DISP_GRID) {
+  } else if (flag == DISP_GRID) {
     FFT_SCALAR *src = d_kspace->grid_brick_start;
     for (int i = 0; i < nlist; i++)
       buf[i] = src[list[i]];
-  } else if (which == INDUCE_GRID) {
+  } else if (flag == INDUCE_GRID) {
     FFT_SCALAR *src = i_kspace->grid_brick_start;
     for (int i = 0; i < nlist; i++)
       buf[i] = src[list[i]];
-  } else if (which == INDUCE_GRIDC) {
+  } else if (flag == INDUCE_GRIDC) {
     FFT_SCALAR *src = ic_kspace->grid_brick_start;
     int n = 0;
     for (int i = 0; i < nlist; i++) {
@@ -1560,34 +1458,34 @@ void PairAmoeba::pack_forward_grid(int which, void *vbuf, int nlist, int *list)
    unpack another proc's own values from buf and set own ghost values
 ------------------------------------------------------------------------- */
 
-void PairAmoeba::unpack_forward_grid(int which, void *vbuf, int nlist, int *list)
+void PairAmoeba::unpack_forward_grid(int flag, void *vbuf, int nlist, int *list)
 {
   FFT_SCALAR *buf = (FFT_SCALAR *) vbuf;
 
-  if (which == MPOLE_GRID) {
+  if (flag == MPOLE_GRID) {
     FFT_SCALAR *dest = m_kspace->grid_brick_start;
     for (int i = 0; i < nlist; i++)
       dest[list[i]] = buf[i];
-  } else if (which == POLAR_GRID) {
+  } else if (flag == POLAR_GRID) {
     FFT_SCALAR *dest = p_kspace->grid_brick_start;
     for (int i = 0; i < nlist; i++)
       dest[list[i]] = buf[i];
-  } else if (which == POLAR_GRIDC) {
+  } else if (flag == POLAR_GRIDC) {
     FFT_SCALAR *dest = pc_kspace->grid_brick_start;
     int n = 0;
     for (int i = 0; i < nlist; i++) {
       dest[2*list[i]] = buf[n++];
       dest[2*list[i]+1] = buf[n++];
     }
-  } else if (which == DISP_GRID) {
+  } else if (flag == DISP_GRID) {
     FFT_SCALAR *dest = d_kspace->grid_brick_start;
     for (int i = 0; i < nlist; i++)
       dest[list[i]] = buf[i];
-  } else if (which == INDUCE_GRID) {
+  } else if (flag == INDUCE_GRID) {
     FFT_SCALAR *dest = i_kspace->grid_brick_start;
     for (int i = 0; i < nlist; i++)
       dest[list[i]] = buf[i];
-  } else if (which == INDUCE_GRIDC) {
+  } else if (flag == INDUCE_GRIDC) {
     FFT_SCALAR *dest = ic_kspace->grid_brick_start;
     int n = 0;
     for (int i = 0; i < nlist; i++) {
@@ -1601,34 +1499,34 @@ void PairAmoeba::unpack_forward_grid(int which, void *vbuf, int nlist, int *list
    pack ghost values into buf to send to another proc
 ------------------------------------------------------------------------- */
 
-void PairAmoeba::pack_reverse_grid(int which, void *vbuf, int nlist, int *list)
+void PairAmoeba::pack_reverse_grid(int flag, void *vbuf, int nlist, int *list)
 {
   FFT_SCALAR *buf = (FFT_SCALAR *) vbuf;
 
-  if (which == MPOLE_GRID) {
+  if (flag == MPOLE_GRID) {
     FFT_SCALAR *src = m_kspace->grid_brick_start;
     for (int i = 0; i < nlist; i++)
       buf[i] = src[list[i]];
-  } else if (which == POLAR_GRID) {
+  } else if (flag == POLAR_GRID) {
     FFT_SCALAR *src = p_kspace->grid_brick_start;
     for (int i = 0; i < nlist; i++)
       buf[i] = src[list[i]];
-  } else if (which == POLAR_GRIDC) {
+  } else if (flag == POLAR_GRIDC) {
     FFT_SCALAR *src = pc_kspace->grid_brick_start;
     int n = 0;
     for (int i = 0; i < nlist; i++) {
       buf[n++] = src[2*list[i]];
       buf[n++] = src[2*list[i]+1];
     }
-  } else if (which == DISP_GRID) {
+  } else if (flag == DISP_GRID) {
     FFT_SCALAR *src = d_kspace->grid_brick_start;
     for (int i = 0; i < nlist; i++)
       buf[i] = src[list[i]];
-  } else if (which == INDUCE_GRID) {
+  } else if (flag == INDUCE_GRID) {
     FFT_SCALAR *src = i_kspace->grid_brick_start;
     for (int i = 0; i < nlist; i++)
       buf[i] = src[list[i]];
-  } else if (which == INDUCE_GRIDC) {
+  } else if (flag == INDUCE_GRIDC) {
     FFT_SCALAR *src = ic_kspace->grid_brick_start;
     int n = 0;
     for (int i = 0; i < nlist; i++) {
@@ -1642,34 +1540,34 @@ void PairAmoeba::pack_reverse_grid(int which, void *vbuf, int nlist, int *list)
    unpack another proc's ghost values from buf and add to own values
 ------------------------------------------------------------------------- */
 
-void PairAmoeba::unpack_reverse_grid(int which, void *vbuf, int nlist, int *list)
+void PairAmoeba::unpack_reverse_grid(int flag, void *vbuf, int nlist, int *list)
 {
   FFT_SCALAR *buf = (FFT_SCALAR *) vbuf;
 
-  if (which == MPOLE_GRID) {
+  if (flag == MPOLE_GRID) {
     FFT_SCALAR *dest = m_kspace->grid_brick_start;
     for (int i = 0; i < nlist; i++)
       dest[list[i]] += buf[i];
-  } else if (which == POLAR_GRID) {
+  } else if (flag == POLAR_GRID) {
     FFT_SCALAR *dest = p_kspace->grid_brick_start;
     for (int i = 0; i < nlist; i++)
       dest[list[i]] += buf[i];
-  } else if (which == POLAR_GRIDC) {
+  } else if (flag == POLAR_GRIDC) {
     FFT_SCALAR *dest = pc_kspace->grid_brick_start;
     int n = 0;
     for (int i = 0; i < nlist; i++) {
       dest[2*list[i]] += buf[n++];
       dest[2*list[i]+1] += buf[n++];
     }
-  } else if (which == DISP_GRID) {
+  } else if (flag == DISP_GRID) {
     FFT_SCALAR *dest = d_kspace->grid_brick_start;
     for (int i = 0; i < nlist; i++)
       dest[list[i]] += buf[i];
-  } else if (which == INDUCE_GRID) {
+  } else if (flag == INDUCE_GRID) {
     FFT_SCALAR *dest = i_kspace->grid_brick_start;
     for (int i = 0; i < nlist; i++)
       dest[list[i]] += buf[i];
-  } else if (which == INDUCE_GRIDC) {
+  } else if (flag == INDUCE_GRIDC) {
     FFT_SCALAR *dest = ic_kspace->grid_brick_start;
     int n = 0;
     for (int i = 0; i < nlist; i++) {
@@ -2395,8 +2293,6 @@ void PairAmoeba::grow_local()
     firstneigh_pcpc = (double **)
       memory->smalloc(nmax*sizeof(double *),"induce:firstneigh_pcpc");
   }
-
-  memory->create(_moduli_array,bsordermax,"amoeba:_moduli_array");
 }
 
 /* ----------------------------------------------------------------------

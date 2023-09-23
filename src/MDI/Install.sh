@@ -57,8 +57,6 @@ include ..\/..\/lib\/mdi\/Makefile.lammps
 
   fi
 
-  touch ../main.cpp             # b/c it uses LMP_MDI
-
 elif (test $1 = 0) then
 
   if (test -e ../Makefile.package) then
@@ -69,7 +67,5 @@ elif (test $1 = 0) then
   if (test -e ../Makefile.package.settings) then
     sed -i -e '/^[ \t]*include.*mdi.*$/d' ../Makefile.package.settings
   fi
-
-  touch ../main.cpp             # b/c it uses LMP_MDI
 
 fi

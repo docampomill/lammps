@@ -46,7 +46,7 @@ class PairLJCutDipoleCut : public Pair {
   double **epsilon, **sigma;
   double **lj1, **lj2, **lj3, **lj4, **offset;
 
-  virtual void allocate();
+  void allocate();
 };
 
 }    // namespace LAMMPS_NS

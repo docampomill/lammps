@@ -76,8 +76,6 @@ Output::Output(LAMMPS *lmp) : Pointers(lmp)
 
   ndump = 0;
   max_dump = 0;
-  any_time_dumps = 0;
-  next_dump_any = next_time_dump_any = MAXBIGINT;
   mode_dump = nullptr;
   every_dump = nullptr;
   every_time_dump = nullptr;
@@ -301,7 +299,7 @@ void Output::setup(int memflag)
   if (memflag) memory_usage();
 
    // set next_thermo to multiple of every or variable eval if var defined
-   // ensure thermo output on last step of run
+   // insure thermo output on last step of run
    // thermo may invoke computes so wrap with clear/add
 
   modify->clearstep_compute();
@@ -433,7 +431,7 @@ void Output::write(bigint ntimestep)
     next_restart = MIN(next_restart_single,next_restart_double);
   }
 
-  // ensure next_thermo forces output on last step of run
+  // insure next_thermo forces output on last step of run
   // thermo may invoke computes so wrap with clear/add
 
   if (next_thermo == ntimestep) {
@@ -500,10 +498,10 @@ void Output::calculate_next_dump(int which, int idump, bigint ntimestep)
         next_dump[idump] += every_dump[idump];
 
     } else {
-      next_dump[idump] = static_cast<bigint>(input->variable->compute_equal(ivar_dump[idump]));
+      next_dump[idump] = static_cast<bigint>
+        (input->variable->compute_equal(ivar_dump[idump]));
       if (next_dump[idump] <= ntimestep)
-        error->all(FLERR,"Dump {} every variable {} returned a bad timestep: {}",
-                   dump[idump]->id, var_dump[idump], next_dump[idump]);
+        error->all(FLERR,"Dump every variable returned a bad timestep");
     }
 
     // dump mode is by simulation time
@@ -513,7 +511,8 @@ void Output::calculate_next_dump(int which, int idump, bigint ntimestep)
 
     bigint nextdump;
     double nexttime;
-    double tcurrent = update->atime + (ntimestep - update->atimestep) * update->dt;
+    double tcurrent = update->atime +
+      (ntimestep - update->atimestep) * update->dt;
 
     if (every_time_dump[idump] > 0.0) {
 
@@ -546,9 +545,11 @@ void Output::calculate_next_dump(int which, int idump, bigint ntimestep)
       // if delta is too small to reach next timestep, use multiple of delta
 
       if (nextdump == ntimestep) {
-        double tnext = update->atime + (ntimestep + 1 - update->atimestep) * update->dt;
-        int multiple = static_cast<int>((tnext - nexttime) / every_time_dump[idump]);
-        nexttime = nexttime + (multiple + 1) * every_time_dump[idump];
+        double tnext = update->atime +
+          (ntimestep+1 - update->atimestep) * update->dt;
+        int multiple = static_cast<int>
+          ((tnext - nexttime) / every_time_dump[idump]);
+        nexttime = nexttime + (multiple+1)*every_time_dump[idump];
         nextdump = ntimestep +
           static_cast<bigint> ((nexttime - tcurrent - EPSDT*update->dt) / update->dt) + 1;
       }
@@ -829,8 +830,6 @@ void Output::delete_dump(const std::string &id)
     ivar_dump[i-1] = ivar_dump[i];
   }
   ndump--;
-  dump[ndump] = nullptr;
-  var_dump[ndump] = nullptr;
   dump_list = std::vector<Dump *>(dump, dump + ndump);
 }
 

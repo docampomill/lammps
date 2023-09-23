@@ -72,7 +72,7 @@ void AtomVecBond::grow_pointers()
 
 void AtomVecBond::pack_restart_pre(int ilocal)
 {
-  // ensure bond_negative vector is needed length
+  // insure bond_negative vector is needed length
 
   if (bond_per_atom < atom->bond_per_atom) {
     delete[] bond_negative;

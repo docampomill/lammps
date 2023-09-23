@@ -125,8 +125,6 @@ void PairLJSPICACoulLongGPU::compute(int eflag, int vflag)
   }
   if (!success) error->one(FLERR, "Insufficient memory on accelerator");
 
-  if (atom->molecular != Atom::ATOMIC && neighbor->ago == 0)
-    neighbor->build_topology();
   if (host_start < inum) {
     cpu_time = platform::walltime();
     if (evflag) {
@@ -167,7 +165,7 @@ void PairLJSPICACoulLongGPU::init_style()
 
   cut_coulsq = cut_coul * cut_coul;
 
-  // ensure use of KSpace long-range solver, set g_ewald
+  // insure use of KSpace long-range solver, set g_ewald
 
   if (force->kspace == nullptr) error->all(FLERR, "Pair style is incompatible with KSpace style");
   g_ewald = force->kspace->g_ewald;

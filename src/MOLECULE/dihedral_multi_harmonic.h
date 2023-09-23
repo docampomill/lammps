@@ -33,7 +33,6 @@ class DihedralMultiHarmonic : public Dihedral {
   void write_restart(FILE *) override;
   void read_restart(FILE *) override;
   void write_data(FILE *) override;
-  void born_matrix(int, int, int, int, int, double &, double &) override;
 
  protected:
   double *a1, *a2, *a3, *a4, *a5;

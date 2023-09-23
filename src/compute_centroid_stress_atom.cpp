@@ -80,7 +80,7 @@ ComputeCentroidStressAtom::ComputeCentroidStressAtom(LAMMPS *lmp, int narg, char
   comm_reverse = 9;
 
   // store temperature ID used by stress computation
-  // ensure it is valid for temperature computation
+  // insure it is valid for temperature computation
 
   if (strcmp(arg[3], "NULL") == 0)
     id_temp = nullptr;
@@ -395,7 +395,7 @@ void ComputeCentroidStressAtom::compute_peratom()
     } else {
 
       // invoke temperature if it hasn't been already
-      // this ensures bias factor is pre-computed
+      // this insures bias factor is pre-computed
 
       if (keflag && temperature->invoked_scalar != update->ntimestep) temperature->compute_scalar();
 

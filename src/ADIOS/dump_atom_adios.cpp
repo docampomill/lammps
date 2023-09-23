@@ -63,9 +63,9 @@ DumpAtomADIOS::DumpAtomADIOS(LAMMPS *lmp, int narg, char **arg) : DumpAtom(lmp, 
   internal = new DumpAtomADIOSInternal();
   try {
 #if defined(MPI_STUBS)
-    internal->ad = new adios2::ADIOS("adios2_config.xml");
+    internal->ad = new adios2::ADIOS("adios2_config.xml", adios2::DebugON);
 #else
-    internal->ad = new adios2::ADIOS("adios2_config.xml", world);
+    internal->ad = new adios2::ADIOS("adios2_config.xml", world, adios2::DebugON);
 #endif
   } catch (std::ios_base::failure &e) {
     error->all(FLERR, "ADIOS initialization failed with error: {}", e.what());
@@ -153,7 +153,7 @@ void DumpAtomADIOS::write()
   internal->varAtoms.SetShape({nAtomsGlobal, nColumns});
   internal->varAtoms.SetSelection({{startRow, 0}, {nAtomsLocal, nColumns}});
 
-  // ensure buf is sized for packing
+  // insure buf is sized for packing
   // adios does not limit per-process data size so nme*size_one is not
   // constrained to int
   // if sorting on IDs also request ID list from pack()

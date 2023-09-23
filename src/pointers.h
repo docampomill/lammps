@@ -94,7 +94,7 @@ class Pointers {
     python(ptr->python) {}
   virtual ~Pointers() = default;
 
-  // remove other default members
+  // remove default members execept for the copy constructor
 
   Pointers() = delete;
   Pointers(const Pointers &) = default;

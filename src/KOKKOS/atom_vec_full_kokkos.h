@@ -34,7 +34,6 @@ class AtomVecFullKokkos : public AtomVecKokkos, public AtomVecFull {
 
   void grow(int) override;
   void grow_pointers() override;
-  void sort_kokkos(Kokkos::BinSort<KeyViewType, BinOp> &Sorter) override;
   int pack_border_kokkos(int n, DAT::tdual_int_2d k_sendlist,
                          DAT::tdual_xfloat_2d buf,int iswap,
                          int pbc_flag, int *pbc, ExecutionSpace space) override;
@@ -44,11 +43,11 @@ class AtomVecFullKokkos : public AtomVecKokkos, public AtomVecFull {
   int pack_exchange_kokkos(const int &nsend,DAT::tdual_xfloat_2d &buf,
                            DAT::tdual_int_1d k_sendlist,
                            DAT::tdual_int_1d k_copylist,
-                           ExecutionSpace space) override;
+                           ExecutionSpace space, int dim,
+                           X_FLOAT lo, X_FLOAT hi) override;
   int unpack_exchange_kokkos(DAT::tdual_xfloat_2d &k_buf, int nrecv,
                              int nlocal, int dim, X_FLOAT lo, X_FLOAT hi,
-                             ExecutionSpace space,
-                             DAT::tdual_int_1d &k_indices) override;
+                             ExecutionSpace space) override;
 
   void sync(ExecutionSpace space, unsigned int mask) override;
   void modified(ExecutionSpace space, unsigned int mask) override;
@@ -123,3 +122,4 @@ class AtomVecFullKokkos : public AtomVecKokkos, public AtomVecFull {
 
 #endif
 #endif
+

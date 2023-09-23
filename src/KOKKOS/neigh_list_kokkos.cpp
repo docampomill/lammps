@@ -14,7 +14,6 @@
 
 #include "neigh_list_kokkos.h"
 #include "kokkos.h"
-#include "memory_kokkos.h"
 
 using namespace LAMMPS_NS;
 
@@ -41,10 +40,11 @@ void NeighListKokkos<DeviceType>::grow(int nmax)
   if (nmax <= maxatoms && (int)d_neighbors.extent(1) >= maxneighs) return;
   maxatoms = nmax;
 
-  MemoryKokkos::realloc_kokkos(k_ilist,"neighlist:ilist",maxatoms);
+  k_ilist = DAT::tdual_int_1d("neighlist:ilist",maxatoms);
   d_ilist = k_ilist.view<DeviceType>();
   d_numneigh = typename ArrayTypes<DeviceType>::t_int_1d("neighlist:numneigh",maxatoms);
-  MemoryKokkos::realloc_kokkos(d_neighbors,"neighlist:neighbors",maxatoms,maxneighs);
+  d_neighbors = typename ArrayTypes<DeviceType>::t_neighbors_2d();
+  d_neighbors = typename ArrayTypes<DeviceType>::t_neighbors_2d(Kokkos::NoInit("neighlist:neighbors"),maxatoms,maxneighs);
 
   if (lmp->kokkos->neigh_transpose) {
     d_neighbors_transpose = typename ArrayTypes<DeviceType>::t_neighbors_2d_lr();

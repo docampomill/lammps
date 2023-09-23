@@ -11,7 +11,7 @@ export LC_ALL
 
 # update child packages that depend on the parent,
 #   but only if the child package is already installed
-# this is necessary to ensure the child package installs
+# this is necessary to insure the child package installs
 #   only child files whose parent package files are now installed
 # decisions on (un)installing individual child files are made by
 #   the Install.sh script in the child package
@@ -45,10 +45,6 @@ depend () {
 # add one if statement per parent package
 # add one depend() call per child package that depends on that parent
 
-if (test $1 = "AMOEBA") then
-  depend GPU
-fi
-
 if (test $1 = "ASPHERE") then
   depend GPU
   depend OPENMP
@@ -72,7 +68,6 @@ if (test $1 = "DIELECTRIC") then
 fi
 
 if (test $1 = "DIPOLE") then
-  depend KOKKOS
   depend OPENMP
 fi
 
@@ -123,10 +118,6 @@ if (test $1 = "KSPACE") then
   depend FEP
 fi
 
-if (test $1 = "LEPTON") then
-  depend OPENMP
-fi
-
 if (test $1 = "MANYBODY") then
   depend ATC
   depend GPU
@@ -160,7 +151,6 @@ fi
 
 if (test $1 = "PYTHON") then
   depend ML-IAP
-  depend KOKKOS
 fi
 
 if (test $1 = "PHONON") then
@@ -173,17 +163,13 @@ if (test $1 = "RIGID") then
   depend DPD-SMOOTH
 fi
 
-if (test $1 = "ML-IAP") then
-  depend KOKKOS
-fi
-
 if (test $1 = "ML-PACE") then
   depend KOKKOS
 fi
 
 if (test $1 = "ML-SNAP") then
-  depend ML-IAP
   depend KOKKOS
+  depend ML-IAP
 fi
 
 if (test $1 = "CG-SPICA") then
@@ -207,8 +193,4 @@ fi
 if (test $1 = "REAXFF") then
   depend KOKKOS
   depend OPENMP
-fi
-
-if (test $1 = "SPIN") then
-  depend KOKKOS
 fi

@@ -28,10 +28,7 @@ using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
 
-BondNonlinear::BondNonlinear(LAMMPS *lmp) : Bond(lmp)
-{
-  born_matrix_enable = 1;
-}
+BondNonlinear::BondNonlinear(LAMMPS *lmp) : Bond(lmp) {}
 
 /* ---------------------------------------------------------------------- */
 
@@ -206,21 +203,6 @@ double BondNonlinear::single(int type, double rsq, int /*i*/, int /*j*/,
   double denomsq = denom*denom;
   fforce = -epsilon[type]/r * 2.0*dr*lamdasq/denomsq;
   return epsilon[type] * drsq / denom;
-}
-
-/* ---------------------------------------------------------------------- */
-
-void BondNonlinear::born_matrix(int type, double rsq, int /*i*/, int /*j*/, double &du, double &du2)
-{
-  double r = sqrt(rsq);
-  double dr = r - r0[type];
-  double drsq = dr * dr;
-  double lamdasq = lamda[type] * lamda[type];
-  double denom = lamdasq - drsq;
-  double denomsq = denom * denom;
-
-  du = 2.0 * epsilon[type] * lamdasq * dr / denomsq;
-  du2 = 2.0 * epsilon[type] * lamdasq * (lamdasq + 3.0 * drsq)/ (denomsq * denom);
 }
 
 /* ---------------------------------------------------------------------- */

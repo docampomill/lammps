@@ -53,8 +53,6 @@ class PPPMElectrodeIntel : public PPPMIntel, public ElectrodeKSpace {
 
   void compute_group_group(int, int, int) override;
 
-  void pack_buffers_q();
-
  protected:
   FFT_SCALAR ***electrolyte_density_brick;
   FFT_SCALAR *electrolyte_density_fft;

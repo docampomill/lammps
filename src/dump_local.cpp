@@ -325,15 +325,21 @@ int DumpLocal::count()
   int i;
 
   // invoke Computes for local quantities
-  // cannot invoke before first run, otherwise invoke if necessary
+  // only if within a run or minimize
+  // else require that computes are current
+  // this prevents a compute from being invoked by the WriteDump class
 
   if (ncompute) {
-    if (update->first_update == 0)
-      error->all(FLERR,"Dump compute cannot be invoked before first run");
-    for (i = 0; i < ncompute; i++) {
-      if (!(compute[i]->invoked_flag & Compute::INVOKED_LOCAL)) {
-        compute[i]->compute_local();
-        compute[i]->invoked_flag |= Compute::INVOKED_LOCAL;
+    if (update->whichflag == 0) {
+      for (i = 0; i < ncompute; i++)
+        if (compute[i]->invoked_local != update->ntimestep)
+          error->all(FLERR,"Compute used in dump between runs is not current");
+    } else {
+      for (i = 0; i < ncompute; i++) {
+        if (!(compute[i]->invoked_flag & Compute::INVOKED_LOCAL)) {
+          compute[i]->compute_local();
+          compute[i]->invoked_flag |= Compute::INVOKED_LOCAL;
+        }
       }
     }
   }

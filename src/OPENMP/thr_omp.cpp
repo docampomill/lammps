@@ -1,3 +1,4 @@
+// clang-format off
 /* -------------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://www.lammps.org/, Sandia National Laboratories
@@ -16,37 +17,42 @@
    OpenMP based threading support for LAMMPS
 ------------------------------------------------------------------------- */
 
-#include "thr_omp.h"
-
-#include "angle.h"
-#include "atom.h"
-#include "bond.h"
-#include "comm.h"
-#include "compute.h"
-#include "dihedral.h"
-#include "error.h"
-#include "force.h"
-#include "improper.h"
-#include "math_const.h"
-#include "modify.h"
-#include "neighbor.h"
-#include "pair.h"
-
 #include <cstring>
 
+#include "atom.h"
+#include "comm.h"
+#include "error.h"
+#include "force.h"
+#include "modify.h"
+#include "neighbor.h"
+
+
+#include "thr_omp.h"
+
+#include "pair.h"
+#include "bond.h"
+#include "angle.h"
+#include "dihedral.h"
+#include "improper.h"
+#include "compute.h"
+
+#include "math_const.h"
+
 using namespace LAMMPS_NS;
-using MathConst::THIRD;
+using namespace MathConst;
 
 /* ---------------------------------------------------------------------- */
 
-ThrOMP::ThrOMP(LAMMPS *ptr, int style) : lmp(ptr), fix(nullptr), thr_style(style), thr_error(0)
+ThrOMP::ThrOMP(LAMMPS *ptr, int style)
+  : lmp(ptr), fix(nullptr), thr_style(style), thr_error(0)
 {
   // register fix omp with this class
-  fix = static_cast<FixOMP *>(lmp->modify->get_fix_by_id("package_omp"));
-  if (!fix) lmp->error->all(FLERR, "The 'package omp' command is required for /omp styles");
+  int ifix = lmp->modify->find_fix("package_omp");
+  if (ifix < 0)
+    lmp->error->all(FLERR,"The 'package omp' command is required for /omp styles");
+  fix = static_cast<FixOMP *>(lmp->modify->fix[ifix]);
 }
 
-// clang-format off
 /* ----------------------------------------------------------------------
    Hook up per thread per atom arrays into the tally infrastructure
    ---------------------------------------------------------------------- */
@@ -148,6 +154,7 @@ void ThrOMP::ev_setup_thr(int eflag, int vflag, int nall, double *eatom,
         memset(&(thr->cvatom_imprp[0][0]),0,nall*9*sizeof(double));
     }
   }
+
   // nothing to do for THR_KSPACE
 }
 
@@ -1305,6 +1312,7 @@ void ThrOMP::ev_tally_thr(Dihedral * const dihed, const int i1, const int i2,
       if (i4 < nlocal) v_tally9(thr->cvatom_dihed[i4],v4);
     }
   }
+
 }
 
 /* ----------------------------------------------------------------------

@@ -45,6 +45,7 @@ class CommBrick : public Comm {
   void reverse_comm(class Dump *) override;                 // reverse comm from a Dump
 
   void forward_comm_array(int, double **) override;            // forward comm of array
+  int exchange_variable(int, double *, double *&) override;    // exchange on neigh stencil
   void *extract(const char *, int &) override;
   double memory_usage() override;
 

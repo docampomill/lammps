@@ -36,9 +36,10 @@ using namespace LAMMPS_NS;
 /* ---------------------------------------------------------------------- */
 
 ComputePressure::ComputePressure(LAMMPS *lmp, int narg, char **arg) :
-  Compute(lmp, narg, arg), vptr(nullptr), id_temp(nullptr), pstyle(nullptr)
+  Compute(lmp, narg, arg),
+  vptr(nullptr), id_temp(nullptr), pstyle(nullptr)
 {
-  if (narg < 4) utils::missing_cmd_args(FLERR,"compute pressure", error);
+  if (narg < 4) error->all(FLERR,"Illegal compute pressure command");
   if (igroup) error->all(FLERR,"Compute pressure must use group all");
 
   scalar_flag = vector_flag = 1;
@@ -49,17 +50,18 @@ ComputePressure::ComputePressure(LAMMPS *lmp, int narg, char **arg) :
   timeflag = 1;
 
   // store temperature ID used by pressure computation
-  // ensure it is valid for temperature computation
+  // insure it is valid for temperature computation
 
-  if (strcmp(arg[3],"NULL") == 0) {
-    id_temp = nullptr;
-  } else {
+  if (strcmp(arg[3],"NULL") == 0) id_temp = nullptr;
+  else {
     id_temp = utils::strdup(arg[3]);
-    auto icompute = modify->get_compute_by_id(id_temp);
-    if (!icompute)
-      error->all(FLERR,"Could not find compute pressure temperature ID {}", id_temp);
-    if (!icompute->tempflag)
-      error->all(FLERR,"Compute pressure temperature ID {} does not compute temperature", id_temp);
+
+    int icompute = modify->find_compute(id_temp);
+    if (icompute < 0)
+      error->all(FLERR,"Could not find compute pressure temperature ID");
+    if (modify->compute[icompute]->tempflag == 0)
+      error->all(FLERR,"Compute pressure temperature ID does not "
+                 "compute temperature");
   }
 
   // process optional args
@@ -127,7 +129,8 @@ ComputePressure::ComputePressure(LAMMPS *lmp, int narg, char **arg) :
   // error check
 
   if (keflag && id_temp == nullptr)
-    error->all(FLERR,"Compute pressure requires temperature ID to include kinetic energy");
+    error->all(FLERR,"Compute pressure requires temperature ID "
+               "to include kinetic energy");
 
   vector = new double[size_vector];
   nvirial = 0;
@@ -138,10 +141,10 @@ ComputePressure::ComputePressure(LAMMPS *lmp, int narg, char **arg) :
 
 ComputePressure::~ComputePressure()
 {
-  delete[] id_temp;
-  delete[] vector;
-  delete[] vptr;
-  delete[] pstyle;
+  delete [] id_temp;
+  delete [] vector;
+  delete [] vptr;
+  delete [] pstyle;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -156,9 +159,10 @@ void ComputePressure::init()
   // fixes could have changed or compute_modify could have changed it
 
   if (keflag) {
-    temperature = modify->get_compute_by_id(id_temp);
-    if (!temperature)
-      error->all(FLERR,"Could not find compute pressure temperature ID {}", id_temp);
+    int icompute = modify->find_compute(id_temp);
+    if (icompute < 0)
+      error->all(FLERR,"Could not find compute pressure temperature ID");
+    temperature = modify->compute[icompute];
   }
 
   // recheck if pair style with and without suffix exists
@@ -344,6 +348,6 @@ void ComputePressure::virial_compute(int n, int ndiag)
 
 void ComputePressure::reset_extra_compute_fix(const char *id_new)
 {
-  delete[] id_temp;
+  delete [] id_temp;
   id_temp = utils::strdup(id_new);
 }

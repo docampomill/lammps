@@ -1,3 +1,4 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://www.lammps.org/, Sandia National Laboratories
@@ -30,4 +31,5 @@ using namespace LAMMPS_NS;
    inherit everything else from PairEAMFS
 ------------------------------------------------------------------------- */
 
-PairEAMFSOpt::PairEAMFSOpt(LAMMPS *lmp) : PairEAM(lmp), PairEAMFS(lmp), PairEAMOpt(lmp) {}
+PairEAMFSOpt::PairEAMFSOpt(LAMMPS *lmp) :
+  PairEAM(lmp), PairEAMFS(lmp), PairEAMOpt(lmp) {}

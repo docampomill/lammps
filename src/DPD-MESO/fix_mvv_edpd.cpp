@@ -31,13 +31,11 @@
 ------------------------------------------------------------------------- */
 
 #include "fix_mvv_edpd.h"
-
+#include <cstring>
 #include "atom.h"
-#include "error.h"
 #include "force.h"
 #include "update.h"
-
-#include <cstring>
+#include "error.h"
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
@@ -73,9 +71,6 @@ void FixMvvEDPD::init()
 {
   dtv = update->dt;
   dtf = 0.5 * update->dt * force->ftm2v;
-
-  if (!force->pair_match("^edpd",0))
-    error->all(FLERR, "Must use pair style edpd with fix mvv/edpd");
 }
 
 /* ----------------------------------------------------------------------

@@ -1,3 +1,4 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://www.lammps.org/, Sandia National Laboratories
@@ -31,10 +32,14 @@
 using namespace LAMMPS_NS;
 using namespace FixConst;
 
-FixNeighHistoryOMP::FixNeighHistoryOMP(class LAMMPS *lmp, int narg, char **argv) :
-    FixNeighHistory(lmp, narg, argv)
-{
+enum{DEFAULT,NPARTNER,PERPARTNER}; // also set in fix neigh/history
+
+
+FixNeighHistoryOMP::FixNeighHistoryOMP(class LAMMPS *lmp,int narg,char **argv)
+  : FixNeighHistory(lmp,narg,argv) {
+
 }
+
 
 /* ----------------------------------------------------------------------
    copy partner info from neighbor data structs (NDS) to atom arrays
@@ -82,10 +87,10 @@ void FixNeighHistoryOMP::pre_exchange_onesided()
     const int tid = 0;
 #endif
 
-    int i, j, ii, jj, m, n, inum, jnum;
-    int *ilist, *jlist, *numneigh, **firstneigh;
+    int i,j,ii,jj,m,n,inum,jnum;
+    int *ilist,*jlist,*numneigh,**firstneigh;
     int *allflags;
-    double *allvalues, *onevalues;
+    double *allvalues,*onevalues;
 
     // NOTE: all operations until very end are with:
     //   nlocal_neigh <= current nlocal
@@ -94,15 +99,15 @@ void FixNeighHistoryOMP::pre_exchange_onesided()
 
     // clear per-thread paged data structures
 
-    MyPage<tagint> &ipg = ipage_atom[tid];
-    MyPage<double> &dpg = dpage_atom[tid];
+    MyPage <tagint> &ipg = ipage_atom[tid];
+    MyPage <double> &dpg = dpage_atom[tid];
     ipg.reset();
     dpg.reset();
 
     // each thread works on a fixed chunk of local and ghost atoms.
-    const int ldelta = 1 + nlocal_neigh / nthreads;
-    const int lfrom = tid * ldelta;
-    const int lmax = lfrom + ldelta;
+    const int ldelta = 1 + nlocal_neigh/nthreads;
+    const int lfrom = tid*ldelta;
+    const int lmax = lfrom +ldelta;
     const int lto = (lmax > nlocal_neigh) ? nlocal_neigh : lmax;
 
     // 1st loop over neighbor list, I = sphere, J = tri
@@ -135,9 +140,9 @@ void FixNeighHistoryOMP::pre_exchange_onesided()
       if ((i >= lfrom) && (i < lto)) {
         n = npartner[i];
         partner[i] = ipg.get(n);
-        valuepartner[i] = dpg.get(dnum * n);
+        valuepartner[i] = dpg.get(dnum*n);
         if (partner[i] == nullptr || valuepartner[i] == nullptr)
-          error->one(FLERR, "Neighbor history overflow, boost neigh_modify one");
+          error->one(FLERR,"Neighbor history overflow, boost neigh_modify one");
       }
     }
 
@@ -156,14 +161,14 @@ void FixNeighHistoryOMP::pre_exchange_onesided()
 
       for (jj = 0; jj < jnum; jj++) {
         if (allflags[jj]) {
-          onevalues = &allvalues[dnum * jj];
+          onevalues = &allvalues[dnum*jj];
           j = jlist[jj];
           j &= NEIGHMASK;
 
           if ((i >= lfrom) && (i < lto)) {
             m = npartner[i]++;
             partner[i][m] = tag[j];
-            memcpy(&valuepartner[i][dnum * m], onevalues, dnumbytes);
+            memcpy(&valuepartner[i][dnum*m],onevalues,dnumbytes);
           }
         }
       }
@@ -173,14 +178,15 @@ void FixNeighHistoryOMP::pre_exchange_onesided()
     // maxexchange = max # of values for any Comm::exchange() atom
 
     maxpartner = m = 0;
-    for (i = lfrom; i < lto; i++) m = MAX(m, npartner[i]);
+    for (i = lfrom; i < lto; i++)
+      m = MAX(m,npartner[i]);
 
 #if defined(_OPENMP)
 #pragma omp critical
 #endif
     {
-      maxpartner = MAX(m, maxpartner);
-      maxexchange = (dnum + 1) * maxpartner + 1;
+      maxpartner = MAX(m,maxpartner);
+      maxexchange = (dnum+1)*maxpartner+1;
     }
   }
 
@@ -207,13 +213,13 @@ void FixNeighHistoryOMP::pre_exchange_newton()
     const int tid = 0;
 #endif
 
-    int i, j, ii, jj, m, n, inum, jnum;
-    int *ilist, *jlist, *numneigh, **firstneigh;
+    int i,j,ii,jj,m,n,inum,jnum;
+    int *ilist,*jlist,*numneigh,**firstneigh;
     int *allflags;
-    double *allvalues, *onevalues, *jvalues;
+    double *allvalues,*onevalues,*jvalues;
 
-    MyPage<tagint> &ipg = ipage_atom[tid];
-    MyPage<double> &dpg = dpage_atom[tid];
+    MyPage <tagint> &ipg = ipage_atom[tid];
+    MyPage <double> &dpg = dpage_atom[tid];
     ipg.reset();
     dpg.reset();
 
@@ -229,9 +235,9 @@ void FixNeighHistoryOMP::pre_exchange_newton()
     firstneigh = list->firstneigh;
 
     // each thread works on a fixed chunk of local and ghost atoms.
-    const int ldelta = 1 + nlocal_neigh / nthreads;
-    const int lfrom = tid * ldelta;
-    const int lmax = lfrom + ldelta;
+    const int ldelta = 1 + nlocal_neigh/nthreads;
+    const int lfrom = tid*ldelta;
+    const int lmax = lfrom +ldelta;
     const int lto = (lmax > nlocal_neigh) ? nlocal_neigh : lmax;
 
     for (ii = 0; ii < inum; ii++) {
@@ -242,19 +248,19 @@ void FixNeighHistoryOMP::pre_exchange_newton()
 
       for (jj = 0; jj < jnum; jj++) {
         if (allflags[jj]) {
-          if ((i >= lfrom) && (i < lto)) npartner[i]++;
+          if ((i >= lfrom) && (i < lto))
+            npartner[i]++;
 
           j = jlist[jj];
           j &= NEIGHMASK;
-          if ((j >= lfrom) && (j < lto)) npartner[j]++;
+          if ((j >= lfrom) && (j < lto))
+            npartner[j]++;
         }
       }
     }
 #if defined(_OPENMP)
 #pragma omp barrier
-    {
-      ;
-    }
+    {;}
 
     // perform reverse comm to augment owned npartner counts with ghost counts
 
@@ -262,7 +268,7 @@ void FixNeighHistoryOMP::pre_exchange_newton()
 #endif
     {
       commflag = NPARTNER;
-      comm->reverse_comm(this, 0);
+      comm->reverse_comm(this,0);
     }
 
     // get page chunks to store atom IDs and shear history for my atoms
@@ -272,9 +278,9 @@ void FixNeighHistoryOMP::pre_exchange_newton()
       if ((i >= lfrom) && (i < lto)) {
         n = npartner[i];
         partner[i] = ipg.get(n);
-        valuepartner[i] = dpg.get(dnum * n);
+        valuepartner[i] = dpg.get(dnum*n);
         if (partner[i] == nullptr || valuepartner[i] == nullptr)
-          error->one(FLERR, "Neighbor history overflow, boost neigh_modify one");
+          error->one(FLERR,"Neighbor history overflow, boost neigh_modify one");
       }
     }
 
@@ -285,9 +291,9 @@ void FixNeighHistoryOMP::pre_exchange_newton()
       for (i = nlocal_neigh; i < nall_neigh; i++) {
         n = npartner[i];
         partner[i] = ipg.get(n);
-        valuepartner[i] = dpg.get(dnum * n);
+        valuepartner[i] = dpg.get(dnum*n);
         if (partner[i] == nullptr || valuepartner[i] == nullptr) {
-          error->one(FLERR, "Neighbor history overflow, boost neigh_modify one");
+          error->one(FLERR,"Neighbor history overflow, boost neigh_modify one");
         }
       }
     }
@@ -307,20 +313,20 @@ void FixNeighHistoryOMP::pre_exchange_newton()
 
       for (jj = 0; jj < jnum; jj++) {
         if (allflags[jj]) {
-          onevalues = &allvalues[dnum * jj];
+          onevalues = &allvalues[dnum*jj];
           j = jlist[jj];
           j &= NEIGHMASK;
 
           if ((i >= lfrom) && (i < lto)) {
             m = npartner[i]++;
             partner[i][m] = tag[j];
-            memcpy(&valuepartner[i][dnum * m], onevalues, dnumbytes);
+            memcpy(&valuepartner[i][dnum*m],onevalues,dnumbytes);
           }
 
           if ((j >= lfrom) && (j < lto)) {
             m = npartner[j]++;
             partner[j][m] = tag[i];
-            jvalues = &valuepartner[j][dnum * m];
+            jvalues = &valuepartner[j][dnum*m];
             for (n = 0; n < dnum; n++) jvalues[n] = -onevalues[n];
           }
         }
@@ -328,9 +334,7 @@ void FixNeighHistoryOMP::pre_exchange_newton()
     }
 #if defined(_OPENMP)
 #pragma omp barrier
-    {
-      ;
-    }
+    {;}
 
 #pragma omp master
 #endif
@@ -347,14 +351,15 @@ void FixNeighHistoryOMP::pre_exchange_newton()
     // set maxpartner = max # of partners of any owned atom
     // maxexchange = max # of values for any Comm::exchange() atom
     m = 0;
-    for (i = lfrom; i < lto; i++) m = MAX(m, npartner[i]);
+    for (i = lfrom; i < lto; i++)
+      m = MAX(m,npartner[i]);
 
 #if defined(_OPENMP)
 #pragma omp critical
 #endif
     {
-      maxpartner = MAX(m, maxpartner);
-      maxexchange = (dnum + 1) * maxpartner + 1;
+      maxpartner = MAX(m,maxpartner);
+      maxexchange = (dnum+1)*maxpartner+1;
     }
   }
 
@@ -382,13 +387,13 @@ void FixNeighHistoryOMP::pre_exchange_no_newton()
     const int tid = 0;
 #endif
 
-    int i, j, ii, jj, m, n, inum, jnum;
-    int *ilist, *jlist, *numneigh, **firstneigh;
+    int i,j,ii,jj,m,n,inum,jnum;
+    int *ilist,*jlist,*numneigh,**firstneigh;
     int *allflags;
-    double *allvalues, *onevalues, *jvalues;
+    double *allvalues,*onevalues,*jvalues;
 
-    MyPage<tagint> &ipg = ipage_atom[tid];
-    MyPage<double> &dpg = dpage_atom[tid];
+    MyPage <tagint> &ipg = ipage_atom[tid];
+    MyPage <double> &dpg = dpage_atom[tid];
     ipg.reset();
     dpg.reset();
 
@@ -404,15 +409,16 @@ void FixNeighHistoryOMP::pre_exchange_no_newton()
     firstneigh = list->firstneigh;
 
     // each thread works on a fixed chunk of local and ghost atoms.
-    const int ldelta = 1 + nlocal_neigh / nthreads;
-    const int lfrom = tid * ldelta;
-    const int lmax = lfrom + ldelta;
+    const int ldelta = 1 + nlocal_neigh/nthreads;
+    const int lfrom = tid*ldelta;
+    const int lmax = lfrom +ldelta;
     const int lto = (lmax > nlocal_neigh) ? nlocal_neigh : lmax;
 
     // zero npartners for all current atoms and
     // clear page data structures for this thread
 
     for (i = lfrom; i < lto; i++) npartner[i] = 0;
+
 
     for (ii = 0; ii < inum; ii++) {
       i = ilist[ii];
@@ -422,11 +428,13 @@ void FixNeighHistoryOMP::pre_exchange_no_newton()
 
       for (jj = 0; jj < jnum; jj++) {
         if (allflags[jj]) {
-          if ((i >= lfrom) && (i < lto)) npartner[i]++;
+          if ((i >= lfrom) && (i < lto))
+            npartner[i]++;
 
           j = jlist[jj];
           j &= NEIGHMASK;
-          if ((j >= lfrom) && (j < lto)) npartner[j]++;
+          if ((j >= lfrom) && (j < lto))
+            npartner[j]++;
         }
       }
     }
@@ -438,9 +446,9 @@ void FixNeighHistoryOMP::pre_exchange_no_newton()
       if ((i >= lfrom) && (i < lto)) {
         n = npartner[i];
         partner[i] = ipg.get(n);
-        valuepartner[i] = dpg.get(dnum * n);
+        valuepartner[i] = dpg.get(dnum*n);
         if (partner[i] == nullptr || valuepartner[i] == nullptr)
-          error->one(FLERR, "Neighbor history overflow, boost neigh_modify one");
+          error->one(FLERR,"Neighbor history overflow, boost neigh_modify one");
       }
     }
 
@@ -459,20 +467,20 @@ void FixNeighHistoryOMP::pre_exchange_no_newton()
 
       for (jj = 0; jj < jnum; jj++) {
         if (allflags[jj]) {
-          onevalues = &allvalues[dnum * jj];
+          onevalues = &allvalues[dnum*jj];
           j = jlist[jj];
           j &= NEIGHMASK;
 
           if ((i >= lfrom) && (i < lto)) {
             m = npartner[i]++;
             partner[i][m] = tag[j];
-            memcpy(&valuepartner[i][dnum * m], onevalues, dnumbytes);
+            memcpy(&valuepartner[i][dnum*m],onevalues,dnumbytes);
           }
 
           if ((j >= lfrom) && (j < lto)) {
             m = npartner[j]++;
             partner[j][m] = tag[i];
-            jvalues = &valuepartner[j][dnum * m];
+            jvalues = &valuepartner[j][dnum*m];
             for (n = 0; n < dnum; n++) jvalues[n] = -onevalues[n];
           }
         }
@@ -483,14 +491,15 @@ void FixNeighHistoryOMP::pre_exchange_no_newton()
     // maxexchange = max # of values for any Comm::exchange() atom
 
     m = 0;
-    for (i = lfrom; i < lto; i++) m = MAX(m, npartner[i]);
+    for (i = lfrom; i < lto; i++)
+      m = MAX(m,npartner[i]);
 
 #if defined(_OPENMP)
 #pragma omp critical
 #endif
     {
-      maxpartner = MAX(m, maxpartner);
-      maxexchange = (dnum + 1) * maxpartner + 1;
+      maxpartner = MAX(m,maxpartner);
+      maxexchange = (dnum+1)*maxpartner+1;
     }
   }
 }
@@ -512,10 +521,12 @@ void FixNeighHistoryOMP::post_neighbor()
     memory->sfree(firstflag);
     memory->sfree(firstvalue);
     maxatom = nall;
-    firstflag = (int **) memory->smalloc(maxatom * sizeof(int *), "neighbor_history:firstflag");
-    firstvalue =
-        (double **) memory->smalloc(maxatom * sizeof(double *), "neighbor_history:firstvalue");
+    firstflag = (int **)
+      memory->smalloc(maxatom*sizeof(int *),"neighbor_history:firstflag");
+    firstvalue = (double **)
+      memory->smalloc(maxatom*sizeof(double *),"neighbor_history:firstvalue");
   }
+
 
 #if defined(_OPENMP)
 #pragma omp parallel LMP_DEFAULT_NONE
@@ -528,14 +539,14 @@ void FixNeighHistoryOMP::post_neighbor()
     const int tid = 0;
 #endif
 
-    int i, j, ii, jj, m, nn, np, inum, jnum, rflag;
+    int i,j,ii,jj,m,nn,np,inum,jnum,rflag;
     tagint jtag;
-    int *ilist, *jlist, *numneigh, **firstneigh;
+    int *ilist,*jlist,*numneigh,**firstneigh;
     int *allflags;
     double *allvalues;
 
-    MyPage<int> &ipg = ipage_neigh[tid];
-    MyPage<double> &dpg = dpage_neigh[tid];
+    MyPage <int> &ipg = ipage_neigh[tid];
+    MyPage <double> &dpg = dpage_neigh[tid];
     ipg.reset();
     dpg.reset();
 
@@ -551,9 +562,9 @@ void FixNeighHistoryOMP::post_neighbor()
     firstneigh = list->firstneigh;
 
     // each thread works on a fixed chunk of local and ghost atoms.
-    const int ldelta = 1 + inum / nthreads;
-    const int lfrom = tid * ldelta;
-    const int lmax = lfrom + ldelta;
+    const int ldelta = 1 + inum/nthreads;
+    const int lfrom = tid*ldelta;
+    const int lmax = lfrom +ldelta;
     const int lto = (lmax > inum) ? inum : lmax;
 
     for (ii = lfrom; ii < lto; ii++) {
@@ -561,7 +572,7 @@ void FixNeighHistoryOMP::post_neighbor()
       jlist = firstneigh[i];
       jnum = numneigh[i];
       firstflag[i] = allflags = ipg.get(jnum);
-      firstvalue[i] = allvalues = dpg.get(jnum * dnum);
+      firstvalue[i] = allvalues = dpg.get(jnum*dnum);
       np = npartner[i];
       nn = 0;
 
@@ -581,14 +592,14 @@ void FixNeighHistoryOMP::post_neighbor()
             if (partner[i][m] == jtag) break;
           if (m < np) {
             allflags[jj] = 1;
-            memcpy(&allvalues[nn], &valuepartner[i][dnum * m], dnumbytes);
+            memcpy(&allvalues[nn],&valuepartner[i][dnum*m],dnumbytes);
           } else {
             allflags[jj] = 0;
-            memcpy(&allvalues[nn], zeroes, dnumbytes);
+            memcpy(&allvalues[nn],zeroes,dnumbytes);
           }
         } else {
           allflags[jj] = 0;
-          memcpy(&allvalues[nn], zeroes, dnumbytes);
+          memcpy(&allvalues[nn],zeroes,dnumbytes);
         }
         nn += dnum;
       }

@@ -211,7 +211,7 @@ void ComputeSNAGrid::compute_array()
   int *const type = atom->type;
   const int ntotal = atom->nlocal + atom->nghost;
 
-  // ensure rij, inside, and typej are of size jnum
+  // insure rij, inside, and typej are of size jnum
 
   snaptr->grow_rij(ntotal);
 

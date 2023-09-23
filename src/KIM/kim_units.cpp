@@ -1,3 +1,4 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://www.lammps.org/, Sandia National Laboratories
@@ -53,182 +54,179 @@
    Designed for use with the kim-api-2.0.2 (and newer) package
 ------------------------------------------------------------------------- */
 
-#include "kim_units.h"
-
-#include "error.h"
-
 #include <cmath>
 #include <map>
 #include <string>
 #include <utility>
 
 using namespace std;
-using namespace LAMMPS_NS;
-using namespace kim_units;
+
+namespace
+{
 
 // Constants of nature and basic conversion factors
 // Source: https://physics.nist.gov/cuu/Constants/Table/allascii.txt
 //         Working with NIST values even when there are newer values for
 //         compatibility with LAMMPS
 
-// clang-format off
-
 /*----------------------
    Fundamental constants
 ------------------------ */
-static double constexpr boltz_si = 1.38064852e-23;   // [J K^-1] Boltzmann's factor
-                                                     // (NIST value)
-static double constexpr Nav = 6.022140857e23;        // [unitless] Avogadro's number (NIST value)
-// static double constexp Nav = 6.02214076e23;       // [unitless] Avogadro's number
-                                                     // (official value May 2019)
-static double constexpr me_si = 9.10938356e-31;      // [kg] electron rest mass (NIST value)
-// static double constexpr me_si = 9.10938291e-31;   // [kg] electron rest mass
-static double constexpr e_si = 1.6021766208e-19;     // [C] elementary charge
-                                                     // (charge of an electron/proton)
-                                                     // (NIST value)
+double const boltz_si = 1.38064852e-23;  // [J K^-1] Boltzmann's factor
+                                         //   (NIST value)
+double const Nav = 6.022140857e23;       // [unitless] Avogadro's number
+                                         //   (NIST value)
+// double const Nav = 6.02214076e23;     // [unitless] Avogadro's number
+                                         //   (official value May 2019)
+double const me_si = 9.10938356e-31;     // [kg] electron rest mass
+                                         //   (NIST value)
+// double me_si = 9.10938291e-31;        // [kg] electron rest mass
+double const e_si = 1.6021766208e-19;    // [C] elementary charge
+                                         //   (charge of an electron/proton)
+                                         //   (NIST value)
 
 /*----------------------
    Distance units
 ------------------------ */
-static double constexpr bohr_si = 5.2917721067e-11;  // [m] Bohr unit (distance between
-                                                     //   nucleus and electron in H) (NIST value)
-static double constexpr angstrom_si = 1e-10;         // [m] Angstrom
-static double constexpr centimeter_si = 1e-2;        // [m] centimeter
-static double constexpr micrometer_si = 1e-6;        // [m] micrometer (micron)
-static double constexpr nanometer_si = 1e-9;         // [m] nanometer
+double const bohr_si = 5.2917721067e-11;  // [m] Bohr unit (distance between
+                                          //   nucleus and electron in H)
+                                          //   (NIST value)
+double const angstrom_si = 1e-10;         // [m] Angstrom
+double const centimeter_si = 1e-2;        // [m] centimeter
+double const micrometer_si = 1e-6;        // [m] micrometer (micron)
+double const nanometer_si = 1e-9;         // [m] nanometer
 
 /*----------------------
    Mass units
 ------------------------ */
-static double constexpr gram_per_mole_si = 1e-3/Nav;  // [kg] gram per mole
-static double constexpr amu_si = 1e-3/Nav;            // [kg] atomic mass unit (molecular
-                                                      //   weight) For example, the mean
-                                                      //   molecular weight of water
-                                                      //   is 18.015 atomic mass units
-                                                      //   (amu), so one mole of water
-                                                      //   weight 18.015 grams.
-static double constexpr gram_si = 1e-3;               // [kg] gram
-static double constexpr picogram_si = 1e-15;          // [kg] picogram
-static double constexpr attogram_si = 1e-21;          // [kg[ attogram
+double const gram_per_mole_si = 1e-3/Nav;  // [kg] gram per mole
+double const amu_si = 1e-3/Nav;            // [kg] atomic mass unit (molecular
+                                           //   weight) For example, the mean
+                                           //   molecular weight of water
+                                           //   is 18.015 atomic mass units
+                                           //   (amu), so one mole of water
+                                           //   weight 18.015 grams.
+double const gram_si = 1e-3;               // [kg] gram
+double const picogram_si = 1e-15;          // [kg] picogram
+double const attogram_si = 1e-21;          // [kg[ attogram
 
 /*----------------------
    Time units
 ------------------------ */
-static double constexpr atu_si = 2.418884326509e-17;  // [s] atomic time unit
-                                                      //   ( = hbar/E_h where E_h is the
-                                                      //   Hartree energy) (NIST value)
-static double constexpr atu_electron_si = 5153034.567408186;  // must not use sqrt() in constexpr
-// static double constexpr atu_electron_si = atu_si*sqrt(amu_si/me_si);
-                                                      // [s] atomic time unit
-                                                      //   used in electron system (see https://sourceforge.net/p/lammps/mailman/lammps-users/thread/BCA2BDB2-BA03-4280-896F-1E6120EF47B2%40caltech.edu/)
-static double constexpr microsecond_si = 1e-6;        // [s] microsecond
-static double constexpr nanosecond_si = 1e-9;         // [s] nanosecond
-static double constexpr picosecond_si = 1e-12;        // [s] picosecond
-static double constexpr femtosecond_si = 1e-15;       // [s] femtosecond
+double const atu_si = 2.418884326509e-17;  // [s] atomic time unit
+                                           //   ( = hbar/E_h where E_h is the
+                                           //   Hartree energy) (NIST value)
+double const atu_electron_si = atu_si*sqrt(amu_si/me_si);
+                                          // [s] atomic time unit
+                                          //   used in electron system (see https://sourceforge.net/p/lammps/mailman/lammps-users/thread/BCA2BDB2-BA03-4280-896F-1E6120EF47B2%40caltech.edu/)
+double const microsecond_si = 1e-6;        // [s] microsecond
+double const nanosecond_si = 1e-9;         // [s] nanosecond
+double const picosecond_si = 1e-12;        // [s] picosecond
+double const femtosecond_si = 1e-15;       // [s] femtosecond
 
 /*----------------------
    Density units
 ------------------------ */
-static double constexpr gram_per_centimetercu_si =
-             gram_si/centimeter_si/centimeter_si/centimeter_si;  // [kg/m^3] gram/centimeter^3
-static double constexpr amu_per_bohrcu_si = amu_si/bohr_si/bohr_si/bohr_si;  // [kg/m^3] amu/bohr^3
-static double constexpr picogram_per_micrometercu_si =
-             picogram_si/micrometer_si/micrometer_si/micrometer_si; // [kg/m^3] picogram/micrometer^3
-static double constexpr attogram_per_nanometercu_si =
-             attogram_si/nanometer_si/nanometer_si/nanometer_si;  // [kg/m^3] attogram/nanometer^3
+double const gram_per_centimetercu_si =
+             gram_si/pow(centimeter_si,3);  // [kg/m^3] gram/centimeter^3
+double const amu_per_bohrcu_si = amu_si/pow(bohr_si,3);  // [kg/m^3] amu/bohr^3
+double const picogram_per_micrometercu_si =
+             picogram_si/pow(micrometer_si,3); // [kg/m^3] picogram/micrometer^3
+double const attogram_per_nanometercu_si =
+             attogram_si/pow(nanometer_si,3);  // [kg/m^3] attogram/nanometer^3
 
 /*----------------------
    Energy/torque units
 ------------------------ */
-static double constexpr kcal_si = 4184.0;              // [J] kilocalorie (heat energy
-                                                       //   involved in warming up one
-                                                       //   kilogram of water by one
-                                                       //   degree Kelvin)
-static double constexpr ev_si = 1.6021766208e-19;      // [J] electron volt (amount of
-                                                       //   energy gained or lost by the
-                                                       //   charge of a single electron
-                                                       //   moving across an electric
-                                                       //   potential difference of one
-                                                       //   volt.) (NIST value)
-static double constexpr hartree_si = 4.359744650e-18;  // [J] Hartree (approximately the
-                                                       //   electric potential energy of
-                                                       //   the hydrogen atom in its
-                                                       //   ground state) (NIST value)
-static double constexpr kcal_per_mole_si = kcal_si/Nav;// [J] kcal/mole
-static double constexpr erg_si = 1e-7;                 // [J] erg
-static double constexpr dyne_centimeter_si = 1e-7;     // [J[ dyne*centimeter
-static double constexpr picogram_micrometersq_per_microsecondsq_si =
-             picogram_si*micrometer_si/microsecond_si*micrometer_si/microsecond_si;
-                                                       // [J] picogram*micrometer^2/
-                                                       //   microsecond^2
-static double constexpr attogram_nanometersq_per_nanosecondsq_si =
-             attogram_si*nanometer_si/nanosecond_si*nanometer_si/nanosecond_si;
-                                                       // [J] attogram*nanometer^2/
-                                                       //   nanosecond^2
+double const kcal_si = 4184.0;              // [J] kilocalorie (heat energy
+                                            //   involved in warming up one
+                                            //   kilogram of water by one
+                                            //   degree Kelvin)
+double const ev_si = 1.6021766208e-19;      // [J] electron volt (amount of
+                                            //   energy gained or lost by the
+                                            //   charge of a single electron
+                                            //   moving across an electric
+                                            //   potential difference of one
+                                            //   volt.) (NIST value)
+double const hartree_si = 4.359744650e-18;  // [J] Hartree (approximately the
+                                            //   electric potential energy of
+                                            //   the hydrogen atom in its
+                                            //   ground state) (NIST value)
+double const kcal_per_mole_si = kcal_si/Nav;// [J] kcal/mole
+double const erg_si = 1e-7;                 // [J] erg
+double const dyne_centimeter_si = 1e-7;     // [J[ dyne*centimeter
+double const picogram_micrometersq_per_microsecondsq_si =
+             picogram_si*pow(micrometer_si,2)/pow(microsecond_si,2);
+                                            // [J] picogram*micrometer^2/
+                                            //   microsecond^2
+double const attogram_nanometersq_per_nanosecondsq_si =
+             attogram_si*pow(nanometer_si,2)/pow(nanosecond_si,2);
+                                            // [J] attogram*nanometer^2/
+                                            //   nanosecond^2
 
 /*----------------------
    Velocity units
 ------------------------ */
-static double constexpr angstrom_per_femtosecond_si =
+double const angstrom_per_femtosecond_si =
              angstrom_si/femtosecond_si;      // [m/s] Angstrom/femtosecond
-static double constexpr angstrom_per_picosecond_si =
+double const angstrom_per_picosecond_si =
              angstrom_si/picosecond_si;       // [m/s] Angstrom/picosecond
-static double constexpr micrometer_per_microsecond_si =
+double const micrometer_per_microsecond_si =
              micrometer_si/microsecond_si;    // [m/s] micrometer/microsecond
-static double constexpr nanometer_per_nanosecond_si =
+double const nanometer_per_nanosecond_si =
              nanometer_si/nanosecond_si;      // [m/s] nanometer/nanosecond
-static double constexpr centimeter_per_second_si =
+double const centimeter_per_second_si =
              centimeter_si;                  // [m/s] centimeter/second
-static double constexpr bohr_per_atu_electron_si =
+double const bohr_per_atu_electron_si =
              bohr_si/atu_electron_si;        // [m/s] bohr/atu
 
 /*----------------------
    Force units
 ------------------------ */
-static double constexpr kcal_per_mole_angstrom_si =
+double const kcal_per_mole_angstrom_si =
              kcal_per_mole_si/angstrom_si;       // [N] kcal/(mole*Angstrom)
-static double constexpr ev_per_angstrom_si =
+double const ev_per_angstrom_si =
              ev_si/angstrom_si;                  // [N] eV/Angstrom
-static double constexpr dyne_si =
+double const dyne_si =
              dyne_centimeter_si/centimeter_si;   // [N] dyne
-static double constexpr hartree_per_bohr_si =
+double const hartree_per_bohr_si =
              hartree_si/bohr_si;                 // [N] hartree/bohr
-static double constexpr picogram_micrometer_per_microsecondsq_si =
-             picogram_si*micrometer_si/microsecond_si/microsecond_si;
+double const picogram_micrometer_per_microsecondsq_si =
+             picogram_si*micrometer_si/pow(microsecond_si,2);
                                                  // [N] picogram*micrometer/
                                                  //   microsecond^2
-static double constexpr attogram_nanometer_per_nanosecondsq_si =
-             attogram_si*nanometer_si/nanosecond_si/nanosecond_si;
+double const attogram_nanometer_per_nanosecondsq_si =
+             attogram_si*nanometer_si/pow(nanosecond_si,2);
                                                  // [N] attogram*nanometer/
                                                  //   nanosecond^2
 
 /*----------------------
    Pressure units
 ------------------------ */
-static double constexpr atmosphere_si = 101325.0; // [Pa] standard atmosphere (NIST value)
-static double constexpr bar_si = 1e5;             // [Pa] bar
-static double constexpr dyne_per_centimetersq_si =
-             dyne_centimeter_si/centimeter_si/centimeter_si/centimeter_si;
+double const atmosphere_si = 101325.0; // [Pa] standard atmosphere (NIST value)
+double const bar_si = 1e5;             // [Pa] bar
+double const dyne_per_centimetersq_si =
+             dyne_centimeter_si/pow(centimeter_si,3);
                                        // [Pa] dyne/centimeter^2
-static double constexpr picogram_per_micrometer_microsecondsq_si =
-             picogram_si/(micrometer_si*microsecond_si*microsecond_si);
+double const picogram_per_micrometer_microsecondsq_si =
+             picogram_si/(micrometer_si*pow(microsecond_si,2));
                                        // [Pa] picogram/(micrometer*
                                        //   microsecond^2)
-static double constexpr attogram_per_nanometer_nanosecondsq_si =
-             attogram_si/(nanometer_si*nanosecond_si*nanosecond_si);
+double const attogram_per_nanometer_nanosecondsq_si =
+             attogram_si/(nanometer_si*pow(nanosecond_si,2));
                                        // [Pa] attogram/(nanometer*nanosecond^2)
 
 /*----------------------
    Viscosity units
 ------------------------ */
-static double constexpr poise_si = 0.1;                  // [Pa*s] Poise
-static double constexpr amu_per_bohr_femtosecond_si =
+double const poise_si = 0.1;                  // [Pa*s] Poise
+double const amu_per_bohr_femtosecond_si =
              amu_si/(bohr_si*femtosecond_si); // [Pa*s] amu/(bohr*femtosecond)
-static double constexpr picogram_per_micrometer_microsecond_si =
+double const picogram_per_micrometer_microsecond_si =
              picogram_si/(micrometer_si*microsecond_si);
                                               // [Pa*s] picogram/(micrometer*
                                               //   microsecond)
-static double constexpr attogram_per_nanometer_nanosecond_si =
+double const attogram_per_nanometer_nanosecond_si =
              attogram_si/(nanometer_si*nanosecond_si);
                                               // [Pa*s] attogram/(nanometer*
                                               //   nanosecond)
@@ -236,41 +234,39 @@ static double constexpr attogram_per_nanometer_nanosecond_si =
 /*----------------------
    Charge units
 ------------------------ */
-static double constexpr echarge_si = e_si;                   // [C] electron charge unit
-static double constexpr statcoulomb_si = e_si/4.8032044e-10; // [C] Statcoulomb or esu
+double const echarge_si = e_si;                   // [C] electron charge unit
+double const statcoulomb_si = e_si/4.8032044e-10; // [C] Statcoulomb or esu
                                                   //   (value from LAMMPS units
                                                   //   documentation)
-static double constexpr picocoulomb_si = 1e-12;              // [C] picocoulomb
+double const picocoulomb_si = 1e-12;              // [C] picocoulomb
 
 /*----------------------
    Dipole units
 ------------------------ */
-static double constexpr electron_angstrom_si = echarge_si*angstrom_si;
+double const electron_angstrom_si = echarge_si*angstrom_si;
                                                  // [C*m] electron*angstrom
-static double constexpr statcoulomb_centimeter_si = statcoulomb_si*centimeter_si;
+double const statcoulomb_centimeter_si = statcoulomb_si*centimeter_si;
                                                  // [C*m] statcoulomb*centimeter
-static double constexpr debye_si = 1e-18*statcoulomb_centimeter_si;
+double const debye_si = 1e-18*statcoulomb_centimeter_si;
                                                  // [C*m] Debye
-static double constexpr picocoulomb_micrometer_si = picocoulomb_si*micrometer_si;
+double const picocoulomb_micrometer_si = picocoulomb_si*micrometer_si;
                                                  // [C*m] picocoulomb*micrometer
-static double constexpr electron_nanometer_si = echarge_si*nanometer_si;
+double const electron_nanometer_si = echarge_si*nanometer_si;
                                                  // [C*m] electron*nanometer
 
 /*----------------------
    Electric field units
 ------------------------ */
-static double constexpr volt_per_angstrom_si = 1.0/angstrom_si;// [V/m] volt/angstrom
-static double constexpr statvolt_per_centimeter_si =
+double const volt_per_angstrom_si = 1.0/angstrom_si;// [V/m] volt/angstrom
+double const statvolt_per_centimeter_si =
              erg_si/(statcoulomb_si*centimeter_si); // [V/m] statvolt/centimeter
-static double constexpr volt_per_centimeter_si =
+double const volt_per_centimeter_si =
              1.0/centimeter_si;                     // [V/m] volt/centimeter
-static double constexpr volt_per_micrometer_si =
+double const volt_per_micrometer_si =
              1.0/micrometer_si;                     // [V/m] volt/micrometer
-static double constexpr volt_per_nanometer_si =
+double const volt_per_nanometer_si =
              1.0/nanometer_si;                      // [V/m] volt/nanometer
 
-namespace LAMMPS_NS {
-namespace kim_units {
 // Define enumerations
 enum sys_type
 {
@@ -392,42 +388,20 @@ enum units
     attogram_per_nanometercu  = 1405
 };
 
-void initialize_dictionaries();
-units get_lammps_system_unit(sys_type system_enum, unit_type unit_type_enum);
-double get_mass_conversion_factor(units from_unit_enum, units to_unit_enum);
-double get_distance_conversion_factor(units from_unit_enum, units to_unit_enum);
-double get_time_conversion_factor(units from_unit_enum, units to_unit_enum);
-double get_energy_conversion_factor(units from_unit_enum, units to_unit_enum);
-double get_velocity_conversion_factor(units from_unit_enum, units to_unit_enum);
-double get_force_conversion_factor(units from_unit_enum, units to_unit_enum);
-double get_torque_conversion_factor(units from_unit_enum, units to_unit_enum);
-double get_temperature_conversion_factor(units from_unit_enum, units to_unit_enum);
-double get_pressure_conversion_factor(units from_unit_enum, units to_unit_enum);
-double get_viscosity_conversion_factor(units from_unit_enum, units to_unit_enum);
-double get_charge_conversion_factor(units from_unit_enum, units to_unit_enum);
-double get_dipole_conversion_factor(units from_unit_enum, units to_unit_enum);
-double get_efield_conversion_factor(units from_unit_enum, units to_unit_enum);
-double get_density_conversion_factor(units from_unit_enum, units to_unit_enum);
-double get_unit_conversion_factor(unit_type &unit_type_enum, sys_type from_system_enum,
-                                  sys_type to_system_enum);
-
-}
-}
-
 // Define dictionaries
-static map<string, sys_type> system_dic;
-static map<string, unit_type> unit_dic;
-static map<unit_type, units> units_real_dic;
-static map<unit_type, units> units_metal_dic;
-static map<unit_type, units> units_si_dic;
-static map<unit_type, units> units_cgs_dic;
-static map<unit_type, units> units_electron_dic;
-static map<unit_type, units> units_micro_dic;
-static map<unit_type, units> units_nano_dic;
+map<string, sys_type> system_dic;
+map<string, unit_type> unit_dic;
+map<unit_type, units> units_real_dic;
+map<unit_type, units> units_metal_dic;
+map<unit_type, units> units_si_dic;
+map<unit_type, units> units_cgs_dic;
+map<unit_type, units> units_electron_dic;
+map<unit_type, units> units_micro_dic;
+map<unit_type, units> units_nano_dic;
 
 /* ---------------------------------------------------------------------- */
 
-void kim_units::initialize_dictionaries()
+void initialize_dictionaries()
 {
   system_dic["real"]     = real;
   system_dic["metal"]    = metal;
@@ -563,7 +537,7 @@ void kim_units::initialize_dictionaries()
 
 // Get the enumeration for the unit of type `unit_type_enum`
 // for LAMMPS system `system_enum`.
-units kim_units::get_lammps_system_unit(sys_type system_enum, unit_type unit_type_enum)
+units get_lammps_system_unit(sys_type system_enum, unit_type unit_type_enum)
 {
   switch(system_enum) {
     case real :
@@ -587,7 +561,7 @@ units kim_units::get_lammps_system_unit(sys_type system_enum, unit_type unit_typ
 /* ---------------------------------------------------------------------- */
 
 // Mass conversion
-double kim_units::get_mass_conversion_factor(units from_unit_enum, units to_unit_enum)
+double get_mass_conversion_factor(units from_unit_enum, units to_unit_enum)
 {
   map<units, map<units, double> > conv;
   double to_si;
@@ -645,7 +619,7 @@ double kim_units::get_mass_conversion_factor(units from_unit_enum, units to_unit
 /* ---------------------------------------------------------------------- */
 
 // Distance conversion
-double kim_units::get_distance_conversion_factor(units from_unit_enum, units to_unit_enum)
+double get_distance_conversion_factor(units from_unit_enum, units to_unit_enum)
 {
   map<units, map<units, double> > conv;
   double to_si;
@@ -703,7 +677,7 @@ double kim_units::get_distance_conversion_factor(units from_unit_enum, units to_
 /* ---------------------------------------------------------------------- */
 
 // Time conversion
-double kim_units::get_time_conversion_factor(units from_unit_enum, units to_unit_enum)
+double get_time_conversion_factor(units from_unit_enum, units to_unit_enum)
 {
   map<units, map<units, double> > conv;
   double to_si;
@@ -748,7 +722,7 @@ double kim_units::get_time_conversion_factor(units from_unit_enum, units to_unit
 /* ---------------------------------------------------------------------- */
 
 // Energy conversion
-double kim_units::get_energy_conversion_factor(units from_unit_enum, units to_unit_enum)
+double get_energy_conversion_factor(units from_unit_enum, units to_unit_enum)
 {
 
   map<units, map<units, double> > conv;
@@ -822,7 +796,7 @@ double kim_units::get_energy_conversion_factor(units from_unit_enum, units to_un
 /* ---------------------------------------------------------------------- */
 
 // Velocity conversion
-double kim_units::get_velocity_conversion_factor(units from_unit_enum, units to_unit_enum)
+double get_velocity_conversion_factor(units from_unit_enum, units to_unit_enum)
 {
   map<units, map<units, double> > conv;
   double to_si;
@@ -895,7 +869,7 @@ double kim_units::get_velocity_conversion_factor(units from_unit_enum, units to_
 /* ---------------------------------------------------------------------- */
 
 // Force conversion
-double kim_units::get_force_conversion_factor(units from_unit_enum, units to_unit_enum)
+double get_force_conversion_factor(units from_unit_enum, units to_unit_enum)
 {
   map<units, map<units, double> > conv;
   double to_si;
@@ -968,7 +942,7 @@ double kim_units::get_force_conversion_factor(units from_unit_enum, units to_uni
 /* ---------------------------------------------------------------------- */
 
 // Torque conversion
-double kim_units::get_torque_conversion_factor(units from_unit_enum, units to_unit_enum)
+double get_torque_conversion_factor(units from_unit_enum, units to_unit_enum)
 {
   map<units, map<units, double> > conv;
   double to_si;
@@ -1041,7 +1015,7 @@ double kim_units::get_torque_conversion_factor(units from_unit_enum, units to_un
 /* ---------------------------------------------------------------------- */
 
 // Temperature conversion
-double kim_units::get_temperature_conversion_factor(units from_unit_enum, units to_unit_enum)
+double get_temperature_conversion_factor(units from_unit_enum, units to_unit_enum)
 {
   map<units, map<units, double> > conv;
 
@@ -1052,7 +1026,7 @@ double kim_units::get_temperature_conversion_factor(units from_unit_enum, units 
 /* ---------------------------------------------------------------------- */
 
 // Pressure conversion
-double kim_units::get_pressure_conversion_factor(units from_unit_enum, units to_unit_enum)
+double get_pressure_conversion_factor(units from_unit_enum, units to_unit_enum)
 {
   map<units, map<units, double> > conv;
   double to_si;
@@ -1110,7 +1084,7 @@ double kim_units::get_pressure_conversion_factor(units from_unit_enum, units to_
 /* ---------------------------------------------------------------------- */
 
 // Viscosity conversion
-double kim_units::get_viscosity_conversion_factor(units from_unit_enum, units to_unit_enum)
+double get_viscosity_conversion_factor(units from_unit_enum, units to_unit_enum)
 {
   map<units, map<units, double> > conv;
   double to_si;
@@ -1155,7 +1129,7 @@ double kim_units::get_viscosity_conversion_factor(units from_unit_enum, units to
 /* ---------------------------------------------------------------------- */
 
 // Charge conversion
-double kim_units::get_charge_conversion_factor(units from_unit_enum, units to_unit_enum)
+double get_charge_conversion_factor(units from_unit_enum, units to_unit_enum)
 {
   map<units, map<units, double> > conv;
   double to_si;
@@ -1189,7 +1163,7 @@ double kim_units::get_charge_conversion_factor(units from_unit_enum, units to_un
 /* ---------------------------------------------------------------------- */
 
 // Dipole conversion
-double kim_units::get_dipole_conversion_factor(units from_unit_enum, units to_unit_enum)
+double get_dipole_conversion_factor(units from_unit_enum, units to_unit_enum)
 {
   map<units, map<units, double> > conv;
   double to_si;
@@ -1247,7 +1221,7 @@ double kim_units::get_dipole_conversion_factor(units from_unit_enum, units to_un
 /* ---------------------------------------------------------------------- */
 
 // Electric field conversion
-double kim_units::get_efield_conversion_factor(units from_unit_enum, units to_unit_enum)
+double get_efield_conversion_factor(units from_unit_enum, units to_unit_enum)
 {
   map<units, map<units, double> > conv;
   double to_si;
@@ -1304,8 +1278,8 @@ double kim_units::get_efield_conversion_factor(units from_unit_enum, units to_un
 
 /* ---------------------------------------------------------------------- */
 
-// Density conversion
-double kim_units::get_density_conversion_factor(units from_unit_enum, units to_unit_enum)
+// Demsity conversion
+double get_density_conversion_factor(units from_unit_enum, units to_unit_enum)
 {
   map<units, map<units, double> > conv;
   double to_si;
@@ -1351,9 +1325,9 @@ double kim_units::get_density_conversion_factor(units from_unit_enum, units to_u
 
 //  This routine returns the unit conversion factor between the
 //  `from_system_enum` to the `to_system_enum` for the `unit_type_enum`.
-double kim_units::get_unit_conversion_factor(unit_type &unit_type_enum,
-                                             sys_type from_system_enum,
-                                             sys_type to_system_enum)
+double get_unit_conversion_factor(unit_type &unit_type_enum,
+                                  sys_type from_system_enum,
+                                  sys_type to_system_enum)
 {
   units from_unit = get_lammps_system_unit(from_system_enum, unit_type_enum);
   units to_unit   = get_lammps_system_unit(to_system_enum, unit_type_enum);
@@ -1390,87 +1364,48 @@ double kim_units::get_unit_conversion_factor(unit_type &unit_type_enum,
   }
 }
 
+} // end of anonymous name space
+
 /* ---------------------------------------------------------------------- */
-// clang-format on
+
 //  Wrapper to the routine that gets the unit conversion. Translates strings
 //  to enumerations and then call get_unit_conversion_factor()
-int kim_units::lammps_unit_conversion(const string &unit_type_str, const string &from_system_str,
-                                      const string &to_system_str, double &conversion_factor)
+int lammps_unit_conversion(const string &unit_type_str,
+                           const string &from_system_str,
+                           const string &to_system_str,
+                           double &conversion_factor)
 {
-  // initialize
-  conversion_factor = 0.0;
-  initialize_dictionaries();
+    // initialize
+    conversion_factor = 0.0;
+    initialize_dictionaries();
 
-  // convert input to enumeration
-  unit_type unit_type_enum;
-  {
-    map<string, unit_type>::const_iterator itr = unit_dic.find(unit_type_str);
-    if (itr != unit_dic.end())
-      unit_type_enum = itr->second;
-    else
-      return 1;    // error
-  }
-  sys_type from_system_enum;
-  {
-    map<string, sys_type>::const_iterator itr = system_dic.find(from_system_str);
-    if (itr != system_dic.end())
-      from_system_enum = itr->second;
-    else
-      return 1;    // error
-  }
-  sys_type to_system_enum;
-  {
-    map<string, sys_type>::const_iterator itr = system_dic.find(to_system_str);
-    if (itr != system_dic.end())
-      to_system_enum = itr->second;
-    else
-      return 1;
-  }
+    // convert input to enumeration
+    unit_type unit_type_enum;
+    {
+      map<string, unit_type>::const_iterator itr = unit_dic.find(unit_type_str);
+      if (itr != unit_dic.end()) unit_type_enum = itr->second;
+      else return 1;  // error
+    }
+    sys_type from_system_enum;
+    {
+      map<string, sys_type>::const_iterator
+          itr = system_dic.find(from_system_str);
+      if (itr != system_dic.end()) from_system_enum = itr->second;
+      else return 1;  // error
+    }
+    sys_type to_system_enum;
+    {
+      map<string, sys_type>::const_iterator
+          itr = system_dic.find(to_system_str);
+      if (itr != system_dic.end()) to_system_enum = itr->second;
+      else return 1;
+    }
 
-  // process unit conversions
-  conversion_factor = get_unit_conversion_factor(unit_type_enum, from_system_enum, to_system_enum);
-  return 0;
+    // process unit conversions
+    conversion_factor = get_unit_conversion_factor(unit_type_enum,
+                                                   from_system_enum,
+                                                   to_system_enum);
+    return 0;
 }
 
-void kim_units::get_kim_unit_names(char const *const system, KIM_LengthUnit &lengthUnit,
-                                   KIM_EnergyUnit &energyUnit, KIM_ChargeUnit &chargeUnit,
-                                   KIM_TemperatureUnit &temperatureUnit, KIM_TimeUnit &timeUnit,
-                                   Error *error)
-{
-  const std::string system_str(system);
-  if (system_str == "real") {
-    lengthUnit = KIM_LENGTH_UNIT_A;
-    energyUnit = KIM_ENERGY_UNIT_kcal_mol;
-    chargeUnit = KIM_CHARGE_UNIT_e;
-    temperatureUnit = KIM_TEMPERATURE_UNIT_K;
-    timeUnit = KIM_TIME_UNIT_fs;
-  } else if (system_str == "metal") {
-    lengthUnit = KIM_LENGTH_UNIT_A;
-    energyUnit = KIM_ENERGY_UNIT_eV;
-    chargeUnit = KIM_CHARGE_UNIT_e;
-    temperatureUnit = KIM_TEMPERATURE_UNIT_K;
-    timeUnit = KIM_TIME_UNIT_ps;
-  } else if (system_str == "si") {
-    lengthUnit = KIM_LENGTH_UNIT_m;
-    energyUnit = KIM_ENERGY_UNIT_J;
-    chargeUnit = KIM_CHARGE_UNIT_C;
-    temperatureUnit = KIM_TEMPERATURE_UNIT_K;
-    timeUnit = KIM_TIME_UNIT_s;
-  } else if (system_str == "cgs") {
-    lengthUnit = KIM_LENGTH_UNIT_cm;
-    energyUnit = KIM_ENERGY_UNIT_erg;
-    chargeUnit = KIM_CHARGE_UNIT_statC;
-    temperatureUnit = KIM_TEMPERATURE_UNIT_K;
-    timeUnit = KIM_TIME_UNIT_s;
-  } else if (system_str == "electron") {
-    lengthUnit = KIM_LENGTH_UNIT_Bohr;
-    energyUnit = KIM_ENERGY_UNIT_Hartree;
-    chargeUnit = KIM_CHARGE_UNIT_e;
-    temperatureUnit = KIM_TEMPERATURE_UNIT_K;
-    timeUnit = KIM_TIME_UNIT_fs;
-  } else if ((system_str == "lj") || (system_str == "micro") || (system_str == "nano")) {
-    error->all(FLERR, "LAMMPS unit_style {} not supported by KIM models", system_str);
-  } else {
-    error->all(FLERR, "Unknown unit_style {}", system_str);
-  }
-}
+

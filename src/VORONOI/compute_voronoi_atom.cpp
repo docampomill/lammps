@@ -234,18 +234,15 @@ void ComputeVoronoi::compute_peratom()
   }
 }
 
-/* ---------------------------------------------------------------------- */
-
 void ComputeVoronoi::buildCells()
 {
   int i;
-  const double EPS = 0.01;
+  const double e = 0.01;
   int nlocal = atom->nlocal;
   int dim = domain->dimension;
 
   // in the onlyGroup mode we are not setting values for all atoms later in the voro loop
   // initialize everything to zero here
-
   if (onlyGroup) {
     if (surface == VOROSURF_NONE)
       for (i = 0; i < nlocal; i++) voro[i][0] = voro[i][1] = 0.0;
@@ -253,41 +250,42 @@ void ComputeVoronoi::buildCells()
       for (i = 0; i < nlocal; i++) voro[i][0] = voro[i][1] = voro[i][2] = 0.0;
   }
 
-  double *sublo = domain->sublo, *sublo_lamda = domain->sublo_lamda;
+  double *sublo = domain->sublo, *sublo_lamda = domain->sublo_lamda, *boxlo = domain->boxlo;
   double *subhi = domain->subhi, *subhi_lamda = domain->subhi_lamda;
   double *cut = comm->cutghost;
   double sublo_bound[3], subhi_bound[3];
   double **x = atom->x;
 
-  // setup bounds for each processor's Voro++ domain
-
-  // triclinic box
-  // embed parallelepiped into orthogonal voro++ domain
-  // cutghost is in lamda coordinates for triclinic boxes, use sub*_lamda
-
+  // setup bounds for voro++ domain for orthogonal and triclinic simulation boxes
   if (domain->triclinic) {
-    double sublo_bound_lamda[3], subhi_bound_lamda[3];
-    for (i = 0; i < 3; ++i) {
-      sublo_bound_lamda[i] = sublo_lamda[i] - cut[i] - EPS;
-      subhi_bound_lamda[i] = subhi_lamda[i] + cut[i] + EPS;
-      if (domain->periodicity[i] == 0) {
-        sublo_bound_lamda[i] = MAX(sublo_bound_lamda[i], 0.0);
-        subhi_bound_lamda[i] = MIN(subhi_bound_lamda[i], 1.0);
+    // triclinic box: embed parallelepiped into orthogonal voro++ domain
+
+    // cutghost is in lamda coordinates for triclinic boxes, use subxx_lamda
+    double *h = domain->h;
+    for (i=0; i<3; ++i) {
+      sublo_bound[i] = sublo_lamda[i]-cut[i]-e;
+      subhi_bound[i] = subhi_lamda[i]+cut[i]+e;
+      if (domain->periodicity[i]==0) {
+        sublo_bound[i] = MAX(sublo_bound[i],0.0);
+        subhi_bound[i] = MIN(subhi_bound[i],1.0);
       }
     }
     if (dim == 2) {
-      sublo_bound_lamda[2] = 0.0;
-      subhi_bound_lamda[2] = 1.0;
+      sublo_bound[2] = 0.0;
+      subhi_bound[2] = 1.0;
     }
-
-    domain->bbox(sublo_bound_lamda,subhi_bound_lamda,sublo_bound,subhi_bound);
-
-  // orthogonal box
+    sublo_bound[0] = h[0]*sublo_bound[0] + h[5]*sublo_bound[1] + h[4]*sublo_bound[2] + boxlo[0];
+    sublo_bound[1] = h[1]*sublo_bound[1] + h[3]*sublo_bound[2] + boxlo[1];
+    sublo_bound[2] = h[2]*sublo_bound[2] + boxlo[2];
+    subhi_bound[0] = h[0]*subhi_bound[0] + h[5]*subhi_bound[1] + h[4]*subhi_bound[2] + boxlo[0];
+    subhi_bound[1] = h[1]*subhi_bound[1] + h[3]*subhi_bound[2] + boxlo[1];
+    subhi_bound[2] = h[2]*subhi_bound[2] + boxlo[2];
 
   } else {
+    // orthogonal box
     for (i=0; i<3; ++i) {
-      sublo_bound[i] = sublo[i]-cut[i] - EPS;
-      subhi_bound[i] = subhi[i]+cut[i] + EPS;
+      sublo_bound[i] = sublo[i]-cut[i]-e;
+      subhi_bound[i] = subhi[i]+cut[i]+e;
       if (domain->periodicity[i]==0) {
         sublo_bound[i] = MAX(sublo_bound[i],domain->boxlo[i]);
         subhi_bound[i] = MIN(subhi_bound[i],domain->boxhi[i]);
@@ -300,7 +298,6 @@ void ComputeVoronoi::buildCells()
   }
 
   // n = # of voro++ spatial hash cells (with approximately cubic cells)
-
   int nall = nlocal + atom->nghost;
   double n[3], V;
   for (i=0; i<3; ++i) n[i] = subhi_bound[i] - sublo_bound[i];
@@ -311,43 +308,33 @@ void ComputeVoronoi::buildCells()
   }
 
   // clear edge statistics
-
   if (maxedge > 0)
     for (i = 0; i <= maxedge; ++i) edge[i]=0;
 
   // initialize voro++ container
   // preallocates 8 atoms per cell
-  // Voro++ allocates more memory if needed
-
+  // voro++ allocates more memory if needed
   int *mask = atom->mask;
   if (radstr) {
-
     // check and fetch atom style variable data
-
     int radvar = input->variable->find(radstr);
     if (radvar < 0)
       error->all(FLERR,"Variable name for voronoi radius does not exist");
     if (!input->variable->atomstyle(radvar))
       error->all(FLERR,"Variable for voronoi radius is not atom style");
-
     // prepare destination buffer for variable evaluation
-
     if (atom->nmax > rmax) {
       memory->destroy(rfield);
       rmax = atom->nmax;
       memory->create(rfield,rmax,"voronoi/atom:rfield");
     }
-
     // compute atom style radius variable
-
     input->variable->compute_atom(radvar,0,rfield,1,0);
 
     // communicate values to ghost atoms of neighboring nodes
-
     comm->forward_comm(this);
 
-    // polydisperse Voro++ container
-
+    // polydisperse voro++ container
     delete con_poly;
     con_poly = new container_poly(sublo_bound[0],
                                   subhi_bound[0],
@@ -358,16 +345,13 @@ void ComputeVoronoi::buildCells()
                                   int(n[0]),int(n[1]),int(n[2]),
                                   false,false,false,8);
 
-    // pass coordinates for local and ghost atoms to Voro++
-
+    // pass coordinates for local and ghost atoms to voro++
     for (i = 0; i < nall; i++) {
       if (!onlyGroup || (mask[i] & groupbit))
         con_poly->put(i,x[i][0],x[i][1],x[i][2],rfield[i]);
     }
-
-  // monodisperse Voro++ container
-
   } else {
+    // monodisperse voro++ container
     delete con_mono;
 
     con_mono = new container(sublo_bound[0],
@@ -379,15 +363,12 @@ void ComputeVoronoi::buildCells()
                              int(n[0]),int(n[1]),int(n[2]),
                              false,false,false,8);
 
-    // pass coordinates for local and ghost atoms to Voro++
-
+    // pass coordinates for local and ghost atoms to voro++
     for (i = 0; i < nall; i++)
       if (!onlyGroup || (mask[i] & groupbit))
         con_mono->put(i,x[i][0],x[i][1],x[i][2]);
   }
 }
-
-/* ---------------------------------------------------------------------- */
 
 void ComputeVoronoi::checkOccupation()
 {
@@ -474,8 +455,6 @@ void ComputeVoronoi::checkOccupation()
   }
 }
 
-/* ---------------------------------------------------------------------- */
-
 void ComputeVoronoi::loopCells()
 {
   // invoke voro++ and fetch results for owned atoms in group
@@ -502,7 +481,6 @@ void ComputeVoronoi::loopCells()
 /* ----------------------------------------------------------------------
    memory usage of local atom-based array
 ------------------------------------------------------------------------- */
-
 void ComputeVoronoi::processCell(voronoicell_neighbor &c, int i)
 {
   int j,k, *mask = atom->mask;
@@ -627,8 +605,6 @@ void ComputeVoronoi::processCell(voronoicell_neighbor &c, int i)
   } else if (i < atom->nlocal) voro[i][0] = voro[i][1] = 0.0;
 }
 
-/* ---------------------------------------------------------------------- */
-
 double ComputeVoronoi::memory_usage()
 {
   double bytes = (double)size_peratom_cols * nmax * sizeof(double);
@@ -636,8 +612,6 @@ double ComputeVoronoi::memory_usage()
   if (faces_flag) bytes += (double)12 * size_local_cols * nmax * sizeof(double);
   return bytes;
 }
-
-/* ---------------------------------------------------------------------- */
 
 void ComputeVoronoi::compute_vector()
 {

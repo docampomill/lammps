@@ -43,10 +43,6 @@ using namespace MathConst;
 ImproperInversionHarmonic::ImproperInversionHarmonic(LAMMPS *lmp) : Improper(lmp)
 {
   writedata = 1;
-
-  // the first atom in the quadruplet is the atom of symmetry
-
-  symmatoms[0] = 1;
 }
 
 /* ---------------------------------------------------------------------- */

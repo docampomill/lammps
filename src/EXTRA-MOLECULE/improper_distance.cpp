@@ -35,12 +35,7 @@ using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
 
-ImproperDistance::ImproperDistance(LAMMPS *lmp) : Improper(lmp)
-{
-  // the first atom in the quadruplet is the atom of symmetry
-
-  symmatoms[0] = 1;
-}
+ImproperDistance::ImproperDistance(LAMMPS *lmp) : Improper(lmp) {}
 
 /* ---------------------------------------------------------------------- */
 

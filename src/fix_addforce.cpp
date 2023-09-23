@@ -103,11 +103,6 @@ FixAddForce::FixAddForce(LAMMPS *lmp, int narg, char **arg) :
 
   maxatom = 1;
   memory->create(sforce, maxatom, 4, "addforce:sforce");
-
-  // KOKKOS package
-
-  datamask_read = X_MASK | F_MASK | MASK_MASK | IMAGE_MASK;
-  datamask_modify = F_MASK;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -126,6 +121,8 @@ FixAddForce::~FixAddForce()
 
 int FixAddForce::setmask()
 {
+  datamask_read = datamask_modify = 0;
+
   int mask = 0;
   mask |= POST_FORCE;
   mask |= POST_FORCE_RESPA;
@@ -240,6 +237,9 @@ void FixAddForce::post_force(int vflag)
   // virial setup
 
   v_init(vflag);
+
+  if (lmp->kokkos)
+    atom->sync_modify(Host, (unsigned int) (F_MASK | MASK_MASK), (unsigned int) F_MASK);
 
   // update region if necessary
 

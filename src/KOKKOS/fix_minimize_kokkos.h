@@ -25,11 +25,10 @@ FixStyle(MINIMIZE/kk/host,FixMinimizeKokkos);
 
 #include "fix_minimize.h"
 #include "kokkos_type.h"
-#include "kokkos_base.h"
 
 namespace LAMMPS_NS {
 
-class FixMinimizeKokkos : public FixMinimize, public KokkosBase {
+class FixMinimizeKokkos : public FixMinimize {
   friend class MinLineSearchKokkos;
 
  public:

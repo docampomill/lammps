@@ -49,7 +49,6 @@ FixACKS2ReaxFFKokkos(LAMMPS *lmp, int narg, char **arg) :
   FixACKS2ReaxFF(lmp, narg, arg)
 {
   kokkosable = 1;
-  sort_device = 1;
   atomKK = (AtomKokkos *) atom;
   execution_space = ExecutionSpaceFromDevice<DeviceType>::space;
 
@@ -1239,7 +1238,7 @@ int FixACKS2ReaxFFKokkos<DeviceType>::bicgstab_solve()
   rnorm = sqrt(norm_sqr);
 
   if (bnorm == 0.0 ) bnorm = 1.0;
-  Kokkos::deep_copy(d_r_hat,d_r);
+  deep_copy(d_r_hat,d_r);
   omega = 1.0;
   rho = 1.0;
 
@@ -1911,25 +1910,6 @@ void FixACKS2ReaxFFKokkos<DeviceType>::copy_arrays(int i, int j, int delflag)
 
   k_s_hist.template modify<LMPHostType>();
   k_s_hist_X.template modify<LMPHostType>();
-}
-
-/* ----------------------------------------------------------------------
-   sort local atom-based arrays
-------------------------------------------------------------------------- */
-
-template<class DeviceType>
-void FixACKS2ReaxFFKokkos<DeviceType>::sort_kokkos(Kokkos::BinSort<KeyViewType, BinOp> &Sorter)
-{
-  // always sort on the device
-
-  k_s_hist.sync_device();
-  k_s_hist_X.sync_device();
-
-  Sorter.sort(LMPDeviceType(), k_s_hist.d_view);
-  Sorter.sort(LMPDeviceType(), k_s_hist_X.d_view);
-
-  k_s_hist.modify_device();
-  k_s_hist_X.modify_device();
 }
 
 /* ----------------------------------------------------------------------

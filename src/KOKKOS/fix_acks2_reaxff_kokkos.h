@@ -27,7 +27,6 @@ FixStyle(acks2/reax/kk/host,FixACKS2ReaxFFKokkos<LMPHostType>);
 
 #include "fix_acks2_reaxff.h"
 #include "kokkos_type.h"
-#include "kokkos_base.h"
 #include "neigh_list.h"
 #include "neigh_list_kokkos.h"
 
@@ -58,7 +57,7 @@ struct TagACKS2ZeroQGhosts{};
 struct TagACKS2CalculateQ{};
 
 template<class DeviceType>
-class FixACKS2ReaxFFKokkos : public FixACKS2ReaxFF, public KokkosBase {
+class FixACKS2ReaxFFKokkos : public FixACKS2ReaxFF {
  public:
   typedef DeviceType device_type;
   typedef double value_type;
@@ -164,7 +163,7 @@ class FixACKS2ReaxFFKokkos : public FixACKS2ReaxFF, public KokkosBase {
     KOKKOS_INLINE_FUNCTION
     params_acks2(){chi=0;eta=0;gamma=0;bcut_acks2=0;};
     KOKKOS_INLINE_FUNCTION
-    params_acks2(int){chi=0;eta=0;gamma=0;bcut_acks2=0;};
+    params_acks2(int i){chi=0;eta=0;gamma=0;bcut_acks2=0;};
     F_FLOAT chi, eta, gamma, bcut_acks2;
   };
 
@@ -253,7 +252,6 @@ class FixACKS2ReaxFFKokkos : public FixACKS2ReaxFF, public KokkosBase {
 
   void grow_arrays(int);
   void copy_arrays(int, int, int);
-  void sort_kokkos(Kokkos::BinSort<KeyViewType, BinOp> &Sorter) override;
   int pack_exchange(int, double *);
   int unpack_exchange(int, double *);
   void get_chi_field();

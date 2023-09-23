@@ -325,7 +325,7 @@ void PairBrownianPoly::init_style()
   if (!atom->sphere_flag)
     error->all(FLERR,"Pair brownian/poly requires atom style sphere");
 
-  // ensure all particles are finite-size
+  // insure all particles are finite-size
   // for pair hybrid, should limit test to types using the pair style
 
   double *radius = atom->radius;

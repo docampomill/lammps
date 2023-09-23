@@ -155,35 +155,6 @@ void AtomVecAngleKokkos::grow_pointers()
   h_angle_atom3 = atomKK->k_angle_atom3.h_view;
 }
 
-/* ----------------------------------------------------------------------
-   sort atom arrays on device
-------------------------------------------------------------------------- */
-
-void AtomVecAngleKokkos::sort_kokkos(Kokkos::BinSort<KeyViewType, BinOp> &Sorter)
-{
-  atomKK->sync(Device, ALL_MASK & ~F_MASK);
-
-  Sorter.sort(LMPDeviceType(), d_tag);
-  Sorter.sort(LMPDeviceType(), d_type);
-  Sorter.sort(LMPDeviceType(), d_mask);
-  Sorter.sort(LMPDeviceType(), d_image);
-  Sorter.sort(LMPDeviceType(), d_x);
-  Sorter.sort(LMPDeviceType(), d_v);
-  Sorter.sort(LMPDeviceType(), d_molecule);
-  Sorter.sort(LMPDeviceType(), d_num_bond);
-  Sorter.sort(LMPDeviceType(), d_bond_type);
-  Sorter.sort(LMPDeviceType(), d_bond_atom);
-  Sorter.sort(LMPDeviceType(), d_nspecial);
-  Sorter.sort(LMPDeviceType(), d_special);
-  Sorter.sort(LMPDeviceType(), d_num_angle);
-  Sorter.sort(LMPDeviceType(), d_angle_type);
-  Sorter.sort(LMPDeviceType(), d_angle_atom1);
-  Sorter.sort(LMPDeviceType(), d_angle_atom2);
-  Sorter.sort(LMPDeviceType(), d_angle_atom3);
-
-  atomKK->modified(Device, ALL_MASK & ~F_MASK);
-}
-
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType,int PBC_FLAG,int TRICLINIC>
@@ -673,14 +644,16 @@ struct AtomVecAngleKokkos_PackExchangeFunctor {
   typename AT::t_xfloat_2d_um _buf;
   typename AT::t_int_1d_const _sendlist;
   typename AT::t_int_1d_const _copylist;
-  int _size_exchange;
+  int _nlocal,_dim;
+  X_FLOAT _lo,_hi;
+  size_t elements;
 
   AtomVecAngleKokkos_PackExchangeFunctor(
       const AtomKokkos* atom,
       const typename AT::tdual_xfloat_2d buf,
       typename AT::tdual_int_1d sendlist,
-      typename AT::tdual_int_1d copylist):
-    _size_exchange(atom->avecKK->size_exchange),
+      typename AT::tdual_int_1d copylist,int nlocal, int dim,
+                X_FLOAT lo, X_FLOAT hi):
     _x(atom->k_x.view<DeviceType>()),
     _v(atom->k_v.view<DeviceType>()),
     _tag(atom->k_tag.view<DeviceType>()),
@@ -716,17 +689,25 @@ struct AtomVecAngleKokkos_PackExchangeFunctor {
     _angle_atom2w(atom->k_angle_atom2.view<DeviceType>()),
     _angle_atom3w(atom->k_angle_atom3.view<DeviceType>()),
     _sendlist(sendlist.template view<DeviceType>()),
-    _copylist(copylist.template view<DeviceType>()) {
+    _copylist(copylist.template view<DeviceType>()),
+    _nlocal(nlocal),_dim(dim),
+    _lo(lo),_hi(hi) {
+    // 3 comp of x, 3 comp of v, 1 tag, 1 type, 1 mask, 1 image, 1 molecule, 3 nspecial,
+    // maxspecial special, 1 num_bond, bond_per_atom bond_type, bond_per_atom bond_atom,
+    // 1 num_angle, angle_per_atom angle_type, angle_per_atom angle_atom1, angle_atom2,
+    // and angle_atom3
+    // 1 to store buffer length
+    elements = 17+atom->maxspecial+2*atom->bond_per_atom+4*atom->angle_per_atom;
     const int maxsendlist = (buf.template view<DeviceType>().extent(0)*
-                             buf.template view<DeviceType>().extent(1))/_size_exchange;
-    buffer_view<DeviceType>(_buf,buf,maxsendlist,_size_exchange);
+                             buf.template view<DeviceType>().extent(1))/elements;
+    buffer_view<DeviceType>(_buf,buf,maxsendlist,elements);
   }
 
   KOKKOS_INLINE_FUNCTION
   void operator() (const int &mysend) const {
     int k;
     const int i = _sendlist(mysend);
-    _buf(mysend,0) = _size_exchange;
+    _buf(mysend,0) = elements;
     int m = 1;
     _buf(mysend,m++) = _x(i,0);
     _buf(mysend,m++) = _x(i,1);
@@ -797,31 +778,25 @@ struct AtomVecAngleKokkos_PackExchangeFunctor {
 int AtomVecAngleKokkos::pack_exchange_kokkos(const int &nsend,DAT::tdual_xfloat_2d &k_buf,
                                             DAT::tdual_int_1d k_sendlist,
                                             DAT::tdual_int_1d k_copylist,
-                                            ExecutionSpace space)
+                                            ExecutionSpace space,int dim,X_FLOAT lo,
+                                            X_FLOAT hi )
 {
-
-  // maxspecial special, 1 num_bond, bond_per_atom bond_type, bond_per_atom bond_atom,
-  // 1 num_angle, angle_per_atom angle_type, angle_per_atom angle_atom1, angle_atom2,
-  // and angle_atom3
-  // 1 to store buffer length
-
-  size_exchange = 17+atom->maxspecial+2*atom->bond_per_atom+4*atom->angle_per_atom;
-
+  const int elements = 17+atom->maxspecial+2*atom->bond_per_atom+4*atom->angle_per_atom;
   if (nsend > (int) (k_buf.view<LMPHostType>().extent(0)*
-              k_buf.view<LMPHostType>().extent(1))/size_exchange) {
-    int newsize = nsend*size_exchange/k_buf.view<LMPHostType>().extent(1)+1;
+              k_buf.view<LMPHostType>().extent(1))/elements) {
+    int newsize = nsend*elements/k_buf.view<LMPHostType>().extent(1)+1;
     k_buf.resize(newsize,k_buf.view<LMPHostType>().extent(1));
   }
   if (space == Host) {
     AtomVecAngleKokkos_PackExchangeFunctor<LMPHostType>
-      f(atomKK,k_buf,k_sendlist,k_copylist);
+      f(atomKK,k_buf,k_sendlist,k_copylist,atom->nlocal,dim,lo,hi);
     Kokkos::parallel_for(nsend,f);
-    return nsend*size_exchange;
+    return nsend*elements;
   } else {
     AtomVecAngleKokkos_PackExchangeFunctor<LMPDeviceType>
-      f(atomKK,k_buf,k_sendlist,k_copylist);
+      f(atomKK,k_buf,k_sendlist,k_copylist,atom->nlocal,dim,lo,hi);
     Kokkos::parallel_for(nsend,f);
-    return nsend*size_exchange;
+    return nsend*elements;
   }
 }
 
@@ -851,14 +826,13 @@ struct AtomVecAngleKokkos_UnpackExchangeFunctor {
   typename AT::t_int_1d _nlocal;
   int _dim;
   X_FLOAT _lo,_hi;
-  int _size_exchange;
+  size_t elements;
 
   AtomVecAngleKokkos_UnpackExchangeFunctor(
       const AtomKokkos* atom,
       const typename AT::tdual_xfloat_2d buf,
       typename AT::tdual_int_1d nlocal,
       int dim, X_FLOAT lo, X_FLOAT hi):
-    _size_exchange(atom->avecKK->size_exchange),
     _x(atom->k_x.view<DeviceType>()),
     _v(atom->k_v.view<DeviceType>()),
     _tag(atom->k_tag.view<DeviceType>()),
@@ -878,9 +852,10 @@ struct AtomVecAngleKokkos_UnpackExchangeFunctor {
     _angle_atom3(atom->k_angle_atom3.view<DeviceType>()),
     _nlocal(nlocal.template view<DeviceType>()),_dim(dim),
     _lo(lo),_hi(hi) {
+    elements =17+atom->maxspecial+2*atom->bond_per_atom+4*atom->angle_per_atom;
     const int maxsendlist = (buf.template view<DeviceType>().extent(0)*
-                             buf.template view<DeviceType>().extent(1))/_size_exchange;
-    buffer_view<DeviceType>(_buf,buf,maxsendlist,_size_exchange);
+                             buf.template view<DeviceType>().extent(1))/elements;
+    buffer_view<DeviceType>(_buf,buf,maxsendlist,elements);
   }
 
   KOKKOS_INLINE_FUNCTION
@@ -925,17 +900,18 @@ struct AtomVecAngleKokkos_UnpackExchangeFunctor {
 
 /* ---------------------------------------------------------------------- */
 
-int AtomVecAngleKokkos::unpack_exchange_kokkos(DAT::tdual_xfloat_2d &k_buf, int nrecv, int nlocal,
-                                               int dim, X_FLOAT lo, X_FLOAT hi, ExecutionSpace space,
-                                               DAT::tdual_int_1d &k_indices)
-{
-  while (nlocal + nrecv/size_exchange >= nmax) grow(0);
+int AtomVecAngleKokkos::unpack_exchange_kokkos(DAT::tdual_xfloat_2d &k_buf,int nrecv,
+                                              int nlocal,int dim,X_FLOAT lo,X_FLOAT hi,
+                                              ExecutionSpace space) {
+  const size_t elements = 17+atom->maxspecial+2*atom->bond_per_atom+4*atom->angle_per_atom;
+
+  while (nlocal + nrecv/elements >= nmax) grow(0);
 
   if (space == Host) {
     k_count.h_view(0) = nlocal;
     AtomVecAngleKokkos_UnpackExchangeFunctor<LMPHostType>
       f(atomKK,k_buf,k_count,dim,lo,hi);
-    Kokkos::parallel_for(nrecv/size_exchange,f);
+    Kokkos::parallel_for(nrecv/elements,f);
     return k_count.h_view(0);
   } else {
     k_count.h_view(0) = nlocal;
@@ -943,7 +919,7 @@ int AtomVecAngleKokkos::unpack_exchange_kokkos(DAT::tdual_xfloat_2d &k_buf, int 
     k_count.sync<LMPDeviceType>();
     AtomVecAngleKokkos_UnpackExchangeFunctor<LMPDeviceType>
       f(atomKK,k_buf,k_count,dim,lo,hi);
-    Kokkos::parallel_for(nrecv/size_exchange,f);
+    Kokkos::parallel_for(nrecv/elements,f);
     k_count.modify<LMPDeviceType>();
     k_count.sync<LMPHostType>();
 

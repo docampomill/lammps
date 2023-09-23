@@ -68,23 +68,25 @@ void PairAmoeba::moduli()
   int maxfft = MAX(nfft1,nfft2);
   maxfft = MAX(maxfft,nfft3);
 
-  if (maxfft > _nfft_max) {
-    memory->destroy(_moduli_bsarray);
-    _nfft_max = maxfft;
-    memory->create(_moduli_bsarray,_nfft_max,"amoeba:_moduli_bsarray");
-  }
+  double *array = new double[bsorder];
+  double *bsarray = new double[maxfft];
 
   // compute and load the moduli values
 
   double x = 0.0;
-  bspline(x,bsorder,_moduli_array);
+  bspline(x,bsorder,array);
 
-  for (i = 0; i < maxfft; i++) _moduli_bsarray[i] = 0.0;
-  for (i = 0; i < bsorder; i++) _moduli_bsarray[i+1] = _moduli_array[i];
+  for (i = 0; i < maxfft; i++) bsarray[i] = 0.0;
+  for (i = 0; i < bsorder; i++) bsarray[i+1] = array[i];
 
-  dftmod(bsmod1,_moduli_bsarray,nfft1,bsorder);
-  dftmod(bsmod2,_moduli_bsarray,nfft2,bsorder);
-  dftmod(bsmod3,_moduli_bsarray,nfft3,bsorder);
+  dftmod(bsmod1,bsarray,nfft1,bsorder);
+  dftmod(bsmod2,bsarray,nfft2,bsorder);
+  dftmod(bsmod3,bsarray,nfft3,bsorder);
+
+  // perform deallocation of local arrays
+
+  delete[] array;
+  delete[] bsarray;
 }
 
 /* ----------------------------------------------------------------------
@@ -215,10 +217,6 @@ void PairAmoeba::bspline_fill()
     // NOTE: could subtract off nlpts to start with
     // NOTE: this is place to check that stencil size does not
     //       go out of bounds relative to igrid for a proc's sub-domain
-    //       similar to PPPM::particle_map()
-    //       subtracting eps is strange, and could mess up the check
-    //       better to check here than in methods like grid_mpole()
-    //       but check needs to be valid for all KSpace terms
     // NOTE: could convert x -> lamda for entire set of Nlocal atoms
 
     domain->x2lamda(x[i],lamda);
@@ -523,7 +521,7 @@ void PairAmoeba::frac_to_cart()
    grid_mpole maps fractional atomic multipoles to PME grid
 ------------------------------------------------------------------------- */
 
-void PairAmoeba::grid_mpole(double **fmp, FFT_SCALAR ***grid)
+void PairAmoeba::grid_mpole(double **fmp, double ***grid)
 {
   int i,j,k,m,ib,jb,kb;
   double v0,u0,t0;
@@ -596,7 +594,7 @@ void PairAmoeba::grid_mpole(double **fmp, FFT_SCALAR ***grid)
    the particle mesh Ewald grid
 ------------------------------------------------------------------------- */
 
-void PairAmoeba::fphi_mpole(FFT_SCALAR ***grid, double **fphi)
+void PairAmoeba::fphi_mpole(double ***grid, double **fphi)
 {
   int i,j,k,m,ib,jb,kb;
   double v0,v1,v2,v3;
@@ -740,7 +738,7 @@ void PairAmoeba::fphi_mpole(FFT_SCALAR ***grid, double **fphi)
    grid_uind maps fractional induced dipoles to the PME grid
 ------------------------------------------------------------------------- */
 
-void PairAmoeba::grid_uind(double **fuind, double **fuinp, FFT_SCALAR ****grid)
+void PairAmoeba::grid_uind(double **fuind, double **fuinp, double ****grid)
 {
   int i,j,k,m,ib,jb,kb;
   double v0,u0,t0;
@@ -791,7 +789,7 @@ void PairAmoeba::grid_uind(double **fuind, double **fuinp, FFT_SCALAR ****grid)
    fphi_uind extracts the induced dipole potential from the particle mesh Ewald grid
 ------------------------------------------------------------------------- */
 
-void PairAmoeba::fphi_uind(FFT_SCALAR ****grid, double **fdip_phi1,
+void PairAmoeba::fphi_uind(double ****grid, double **fdip_phi1,
                            double **fdip_phi2, double **fdip_sum_phi)
 {
   int i,j,k,m,ib,jb,kb;
@@ -1040,7 +1038,7 @@ void PairAmoeba::fphi_uind(FFT_SCALAR ****grid, double **fdip_phi1,
    grid_disp maps dispersion coefficients to PME grid
 ------------------------------------------------------------------------- */
 
-void PairAmoeba::grid_disp(FFT_SCALAR ***grid)
+void PairAmoeba::grid_disp(double ***grid)
 {
   int i,j,k,m,ib,jb,kb,itype,iclass;
   double v0,u0,t0;

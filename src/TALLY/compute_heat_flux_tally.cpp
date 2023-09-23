@@ -29,11 +29,10 @@ using namespace LAMMPS_NS;
 ComputeHeatFluxTally::ComputeHeatFluxTally(LAMMPS *lmp, int narg, char **arg) :
     Compute(lmp, narg, arg)
 {
-  if (narg < 4) utils::missing_cmd_args(FLERR, "compute heat/flux/tally", error);
+  if (narg < 4) error->all(FLERR, "Illegal compute heat/flux/tally command");
 
   igroup2 = group->find(arg[3]);
-  if (igroup2 == -1)
-    error->all(FLERR, "Could not find compute heat/flux/tally second group ID {}", arg[3]);
+  if (igroup2 == -1) error->all(FLERR, "Could not find compute heat/flux/tally second group ID");
   groupbit2 = group->bitmask[igroup2];
 
   vector_flag = 1;
@@ -205,10 +204,7 @@ void ComputeHeatFluxTally::compute_vector()
 {
   invoked_vector = update->ntimestep;
   if ((did_setup != invoked_vector) || (update->eflag_global != invoked_vector))
-    error->all(FLERR, "Stress was not tallied on needed timestep");
-
-  if ((comm->me == 0) && !force->pair->did_tally_callback())
-    error->warning(FLERR, "Stress was not tallied by pair style");
+    error->all(FLERR, "Energy was not tallied on needed timestep");
 
   // collect contributions from ghost atoms
 

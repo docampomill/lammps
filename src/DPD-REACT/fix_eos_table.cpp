@@ -398,7 +398,7 @@ double FixEOStable::splint(double *xa, double *ya, double *y2a, int n, double x)
 
 /* ----------------------------------------------------------------------
    calculate internal energy u at temperature t
-   ensure t is between min/max
+   insure t is between min/max
 ------------------------------------------------------------------------- */
 
 void FixEOStable::energy_lookup(double t, double &u)
@@ -420,7 +420,7 @@ void FixEOStable::energy_lookup(double t, double &u)
 }
 /* ----------------------------------------------------------------------
    calculate temperature t at energy u
-   ensure u is between min/max
+   insure u is between min/max
 ------------------------------------------------------------------------- */
 
 void FixEOStable::temperature_lookup(double u, double &t)

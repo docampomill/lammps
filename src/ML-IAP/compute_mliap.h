@@ -42,6 +42,7 @@ class ComputeMLIAP : public Compute {
   int ndescriptors;    // number of descriptors
   int nparams;         // number of model parameters per element
   int nelements;
+  int gradgradflag;    // 1 for graddesc, 0 for gamma
   class MLIAPModel *model;
   class MLIAPDescriptor *descriptor;
   class MLIAPData *data;

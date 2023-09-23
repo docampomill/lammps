@@ -110,7 +110,9 @@ PairReaxFF::PairReaxFF(LAMMPS *lmp) : Pair(lmp)
 
   setup_flag = 0;
   fixspecies_flag = 0;
+
   nmax = 0;
+
   list_blocking_flag = 0;
 }
 
@@ -128,13 +130,13 @@ PairReaxFF::~PairReaxFF()
     // deallocate reax data-structures
 
     if (api->control->tabulate) Deallocate_Lookup_Tables(api->system);
-    if (api->control->hbond_cut > 0) Delete_List(api->lists+HBONDS);
 
+    if (api->control->hbond_cut > 0) Delete_List(api->lists+HBONDS);
     Delete_List(api->lists+BONDS);
     Delete_List(api->lists+THREE_BODIES);
     Delete_List(api->lists+FAR_NBRS);
 
-    DeAllocate_Workspace(api->workspace);
+    DeAllocate_Workspace(api->control, api->workspace);
     DeAllocate_System(api->system);
   }
 
@@ -151,16 +153,17 @@ PairReaxFF::~PairReaxFF()
     memory->destroy(cutsq);
     memory->destroy(cutghost);
 
-    delete[] chi;
-    delete[] eta;
-    delete[] gamma;
-    delete[] bcut_acks2;
+    delete [] chi;
+    delete [] eta;
+    delete [] gamma;
+    delete [] bcut_acks2;
   }
 
   memory->destroy(tmpid);
   memory->destroy(tmpbo);
 
-  delete[] pvector;
+  delete [] pvector;
+
 }
 
 /* ---------------------------------------------------------------------- */
@@ -277,6 +280,11 @@ void PairReaxFF::coeff(int nargs, char **args)
   if (!allocated) allocate();
 
   if (nargs != 3 + atom->ntypes)
+    error->all(FLERR,"Incorrect args for pair coefficients");
+
+  // insure I,J args are * *
+
+  if (strcmp(args[0],"*") != 0 || strcmp(args[1],"*") != 0)
     error->all(FLERR,"Incorrect args for pair coefficients");
 
   // read ffield file
@@ -528,6 +536,7 @@ void PairReaxFF::compute(int eflag, int vflag)
       }
     FindBond();
   }
+
 }
 
 /* ---------------------------------------------------------------------- */
@@ -645,7 +654,7 @@ int PairReaxFF::write_reax_lists()
     jlist = firstneigh[i];
     Set_Start_Index(i, num_nbrs, far_nbrs);
 
-    if (itr_i < inum)
+    if (i < inum)
       cutoff_sqr = SQR(api->control->nonb_cut);
     else
       cutoff_sqr = SQR(api->control->bond_cut);

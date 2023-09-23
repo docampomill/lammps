@@ -59,12 +59,7 @@ using namespace MathSpecial;
 
 /* ---------------------------------------------------------------------- */
 
-ImproperRing::ImproperRing(LAMMPS *lmp) : Improper(lmp)
-{
-  // the second atom in the quadruplet is the atom of symmetry
-
-  symmatoms[1] = 1;
-}
+ImproperRing::ImproperRing(LAMMPS *lmp) : Improper(lmp) {}
 
 /* ---------------------------------------------------------------------- */
 

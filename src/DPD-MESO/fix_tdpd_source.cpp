@@ -1,3 +1,4 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://www.lammps.org/, Sandia National Laboratories
@@ -14,10 +15,7 @@
 #include "fix_tdpd_source.h"
 
 #include "atom.h"
-#include "comm.h"
-#include "domain.h"
 #include "error.h"
-#include "region.h"
 
 #include <cmath>
 #include <cstring>
@@ -25,61 +23,41 @@
 using namespace LAMMPS_NS;
 using namespace FixConst;
 
-enum { SPHERE, CUBOID, REGION };
-
 /* ---------------------------------------------------------------------- */
 
 FixTDPDSource::FixTDPDSource(LAMMPS *lmp, int narg, char **arg) :
-    Fix(lmp, narg, arg), idregion(nullptr), region(nullptr)
+  Fix(lmp, narg, arg)
 {
-  if (narg < 4) utils::missing_cmd_args(FLERR, "fix tdpd/source", error);
+  if (strcmp(style,"tdpd/source") != 0 && narg < 4)
+    error->all(FLERR,"Illegal fix tdpd/source command");
 
   int iarg = 3;
-  cc_index = utils::inumeric(FLERR, arg[iarg++], false, lmp);
+  cc_index = utils::inumeric(FLERR,arg[iarg++],false,lmp);
 
-  if (strcmp(arg[iarg], "sphere") == 0) {
-    option = SPHERE;
-    if (narg != 10) error->all(FLERR, "Illegal fix tdpd/source command (5 args for sphere)");
-    ++iarg;
-    center[0] = utils::numeric(FLERR, arg[iarg++], false, lmp);
-    center[1] = utils::numeric(FLERR, arg[iarg++], false, lmp);
-    center[2] = utils::numeric(FLERR, arg[iarg++], false, lmp);
-    radius = utils::numeric(FLERR, arg[iarg++], false, lmp);
-    value = utils::numeric(FLERR, arg[iarg++], false, lmp);
-    if (comm->me == 0)
-      error->warning(FLERR, "The sphere keyword is deprecated and will be removed in the future.");
+  if (strcmp(arg[iarg],"sphere") == 0) option = 0;
+  else if (strcmp(arg[iarg],"cuboid") == 0) option = 1;
+  else error->all(FLERR,"Illegal fix tdpd/source command");
+  iarg++;
 
-  } else if (strcmp(arg[iarg], "cuboid") == 0) {
-    option = CUBOID;
-    if (narg != 12) error->all(FLERR, "Illegal fix tdpd/source command (7 args for cuboid)");
-    ++iarg;
-    center[0] = utils::numeric(FLERR, arg[iarg++], false, lmp);
-    center[1] = utils::numeric(FLERR, arg[iarg++], false, lmp);
-    center[2] = utils::numeric(FLERR, arg[iarg++], false, lmp);
-    dLx = utils::numeric(FLERR, arg[iarg++], false, lmp);
-    dLy = utils::numeric(FLERR, arg[iarg++], false, lmp);
-    dLz = utils::numeric(FLERR, arg[iarg++], false, lmp);
-    value = utils::numeric(FLERR, arg[iarg++], false, lmp);
-    if (comm->me == 0)
-      error->warning(FLERR, "The cuboid keyword is deprecated and will be removed in the future.");
-
-  } else if (strcmp(arg[iarg], "region") == 0) {
-    option = REGION;
-    if (narg != 7) error->all(FLERR, "Illegal fix tdpd/source command (2 args for region)");
-    ++iarg;
-    if (!domain->get_region_by_id(arg[iarg]))
-      error->all(FLERR, "Region {} for fix tdpd/source does not exist", arg[iarg]);
-    idregion = utils::strdup(arg[iarg++]);
-    value = utils::numeric(FLERR, arg[iarg++], false, lmp);
-  } else
-    error->all(FLERR, "Illegal fix tdpd/source command option {}", arg[iarg]);
-}
-
-/* ---------------------------------------------------------------------- */
-
-FixTDPDSource::~FixTDPDSource()
-{
-  delete[] idregion;
+  if (option == 0) {
+    if (narg != 10 ) error->all(FLERR,"Illegal fix tdpd/source command (5 args for sphere)");
+    center[0] = utils::numeric(FLERR,arg[iarg++],false,lmp);
+    center[1] = utils::numeric(FLERR,arg[iarg++],false,lmp);
+    center[2] = utils::numeric(FLERR,arg[iarg++],false,lmp);
+    radius  = utils::numeric(FLERR,arg[iarg++],false,lmp);
+    value   = utils::numeric(FLERR,arg[iarg++],false,lmp);
+  }
+  else if (option == 1) {
+    if (narg != 12 ) error->all(FLERR,"Illegal fix tdpd/edpd command (7 args for cuboid)");
+    center[0] = utils::numeric(FLERR,arg[iarg++],false,lmp);
+    center[1] = utils::numeric(FLERR,arg[iarg++],false,lmp);
+    center[2] = utils::numeric(FLERR,arg[iarg++],false,lmp);
+    dLx = utils::numeric(FLERR,arg[iarg++],false,lmp);
+    dLy = utils::numeric(FLERR,arg[iarg++],false,lmp);
+    dLz = utils::numeric(FLERR,arg[iarg++],false,lmp);
+    value = utils::numeric(FLERR,arg[iarg++],false,lmp);
+  }
+  else error->all(FLERR,"Illegal fix tdpd/source command");
 }
 
 /* ---------------------------------------------------------------------- */
@@ -95,12 +73,6 @@ int FixTDPDSource::setmask()
 
 void FixTDPDSource::init()
 {
-  // set index and check validity of region
-
-  if (idregion) {
-    region = domain->get_region_by_id(idregion);
-    if (!region) error->all(FLERR, "Region {} for fix tdpd/source does not exist", idregion);
-  }
 }
 
 /* ---------------------------------------------------------------------- */
@@ -113,26 +85,24 @@ void FixTDPDSource::post_force(int /*vflag*/)
   int nlocal = atom->nlocal;
 
   double drx, dry, drz, rsq;
-  double radius_sq = radius * radius * radius;
-
-  if (region) region->prematch();
+  double radius_sq = radius*radius*radius;
 
   for (int i = 0; i < nlocal; i++) {
     if (mask[i] & groupbit) {
-      if (option == SPHERE) {
+      if (option == 0) {
         drx = x[i][0] - center[0];
         dry = x[i][1] - center[1];
         drz = x[i][2] - center[2];
-        rsq = drx * drx + dry * dry + drz * drz;
-        if (rsq < radius_sq) cc_flux[i][cc_index - 1] += value;
-      } else if (option == CUBOID) {
+        rsq = drx*drx + dry*dry + drz*drz;
+        if (rsq < radius_sq)
+          cc_flux[i][cc_index-1] += value;
+      }
+      else if (option == 1) {
         drx = x[i][0] - center[0];
         dry = x[i][1] - center[1];
         drz = x[i][2] - center[2];
-        if (fabs(drx) <= 0.5 * dLx && fabs(dry) <= 0.5 * dLy && fabs(drz) <= 0.5 * dLz)
-          cc_flux[i][cc_index - 1] += value;
-      } else if (option == REGION) {
-        if (region->match(x[i][0], x[i][1], x[i][2])) cc_flux[i][cc_index - 1] += value;
+        if (fabs(drx) <= 0.5*dLx && fabs(dry) <= 0.5*dLy && fabs(drz) <= 0.5*dLz)
+          cc_flux[i][cc_index-1] += value;
       }
     }
   }

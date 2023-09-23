@@ -33,14 +33,10 @@ using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
 
-MLIAPModelPython::MLIAPModelPython(LAMMPS *lmp, char *coefffilename, bool is_child) :
+MLIAPModelPython::MLIAPModelPython(LAMMPS *lmp, char *coefffilename) :
     MLIAPModel(lmp, coefffilename)
 {
   model_loaded = 0;
-  nonlinearflag = 1;
-
-  if (is_child)
-    return;
   python->init();
   PyGILState_STATE gstate = PyGILState_Ensure();
 
@@ -70,18 +66,17 @@ MLIAPModelPython::MLIAPModelPython(LAMMPS *lmp, char *coefffilename, bool is_chi
     PyList_Append(py_path, PY_STRING_FROM_STRING(potentials_path));
   }
   PyGILState_Release(gstate);
+
   if (coefffilename) read_coeffs(coefffilename);
 
-
+  nonlinearflag = 1;
 }
 
 /* ---------------------------------------------------------------------- */
 
 MLIAPModelPython::~MLIAPModelPython()
 {
-  if (model_loaded!=0)
-    MLIAPPY_unload_model(this);
-  model_loaded=0;
+  MLIAPPY_unload_model(this);
 }
 
 /* ----------------------------------------------------------------------
@@ -97,7 +92,7 @@ void MLIAPModelPython::read_coeffs(char *fname)
 {
   PyGILState_STATE gstate = PyGILState_Ensure();
 
-  model_loaded = MLIAPPY_load_model(this, fname);
+  int loaded = MLIAPPY_load_model(this, fname);
   if (PyErr_Occurred()) {
     PyErr_Print();
     PyErr_Clear();
@@ -106,7 +101,7 @@ void MLIAPModelPython::read_coeffs(char *fname)
   }
   PyGILState_Release(gstate);
 
-  if (model_loaded) {
+  if (loaded) {
     this->connect_param_counts();
   } else {
     if (comm->me == 0) utils::logmesg(lmp, "Loading python model deferred.\n");
@@ -129,7 +124,7 @@ void MLIAPModelPython::connect_param_counts()
   }
   PyGILState_Release(gstate);
   model_loaded = 1;
-  if (comm->me == 0) utils::logmesg(lmp, "Loading python model complete.\n");
+  utils::logmesg(lmp, "Loading python model complete.\n");
 }
 
 /* ----------------------------------------------------------------------

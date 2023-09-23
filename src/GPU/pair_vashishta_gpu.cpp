@@ -116,8 +116,6 @@ void PairVashishtaGPU::compute(int eflag, int vflag)
                           cpu_time, success);
   }
   if (!success) error->one(FLERR, "Insufficient memory on accelerator");
-  if (atom->molecular != Atom::ATOMIC && neighbor->ago == 0)
-    neighbor->build_topology();
 }
 
 /* ---------------------------------------------------------------------- */

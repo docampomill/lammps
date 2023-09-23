@@ -35,7 +35,7 @@ class PPPMElectrode : public PPPM, public ElectrodeKSpace {
   ~PPPMElectrode() override;
   void init() override;
   void setup() override;
-  void reset_grid() override;
+  void setup_grid() override;
   void compute(int, int) override;
 
   void compute_vector(double *, int, int, bool) override;

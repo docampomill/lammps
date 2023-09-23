@@ -1198,13 +1198,11 @@ void * imdsock_create() {
 
 int imdsock_bind(void * v, int port) {
   auto s = (imdsocket *) v;
-  auto *addr = &(s->addr);
-  s->addrlen = sizeof(s->addr);
-  memset(addr, 0, s->addrlen);
-  addr->sin_family = PF_INET;
-  addr->sin_port = htons(port);
+  memset(&(s->addr), 0, sizeof(s->addr));
+  s->addr.sin_family = PF_INET;
+  s->addr.sin_port = htons(port);
 
-  return bind(s->sd, (struct sockaddr *) addr, s->addrlen);
+  return bind(s->sd, (struct sockaddr *) &s->addr, sizeof(s->addr));
 }
 
 int imdsock_listen(void * v) {
@@ -1215,7 +1213,7 @@ int imdsock_listen(void * v) {
 void *imdsock_accept(void * v) {
   int rc;
   imdsocket *new_s = nullptr, *s = (imdsocket *) v;
-#if defined(ARCH_AIX5) || defined(ARCH_AIX5_64) || defined(ARCH_AIX6_64) || defined(__sun)
+#if defined(ARCH_AIX5) || defined(ARCH_AIX5_64) || defined(ARCH_AIX6_64)
   unsigned int len;
 #define _SOCKLEN_TYPE unsigned int
 #elif defined(SOCKLEN_T)
@@ -1229,7 +1227,7 @@ void *imdsock_accept(void * v) {
   int len;
 #endif
 
-  len = s->addrlen;
+  len = sizeof(s->addr);
   rc = accept(s->sd, (struct sockaddr *) &s->addr, ( _SOCKLEN_TYPE * ) &len);
   if (rc >= 0) {
     new_s = (imdsocket *) malloc(sizeof(imdsocket));

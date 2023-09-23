@@ -327,14 +327,15 @@ void Input::file(const char *filename)
   // call to file() will close filename and decrement nfile
 
   if (me == 0) {
-    if (nfile == maxfile) error->one(FLERR,"Too many nested levels of input scripts");
+    if (nfile == maxfile)
+      error->one(FLERR,"Too many nested levels of input scripts");
 
-    if (filename) {
-      infile = fopen(filename,"r");
-      if (infile == nullptr)
-        error->one(FLERR,"Cannot open input script {}: {}", filename, utils::getsyserror());
-      infiles[nfile++] = infile;
-    }
+    infile = fopen(filename,"r");
+    if (infile == nullptr)
+      error->one(FLERR,"Cannot open input script {}: {}",
+                                   filename, utils::getsyserror());
+
+    infiles[nfile++] = infile;
   }
 
   // process contents of file
@@ -342,11 +343,9 @@ void Input::file(const char *filename)
   file();
 
   if (me == 0) {
-    if (filename) {
-      fclose(infile);
-      nfile--;
-      infile = infiles[nfile-1];
-    }
+    fclose(infile);
+    nfile--;
+    infile = infiles[nfile-1];
   }
 }
 
@@ -607,7 +606,7 @@ void Input::substitute(char *&str, char *&str2, int &max, int &max2, int flag)
         paren_count = 0;
         i = 0;
 
-        while (var[i] != '\0' && (var[i] != ')' || paren_count != 0)) {
+        while (var[i] != '\0' && !(var[i] == ')' && paren_count == 0)) {
           switch (var[i]) {
           case '(': paren_count++; break;
           case ')': paren_count--; break;
@@ -1435,8 +1434,10 @@ void Input::comm_style()
   } else if (strcmp(arg[0],"tiled") == 0) {
     if (comm->style == Comm::TILED) return;
     Comm *oldcomm = comm;
+
     if (lmp->kokkos) comm = new CommTiledKokkos(lmp,oldcomm);
     else comm = new CommTiled(lmp,oldcomm);
+
     delete oldcomm;
   } else error->all(FLERR,"Unknown comm_style argument: {}", arg[0]);
 }

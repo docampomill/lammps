@@ -131,8 +131,6 @@ void PairLJCutTIP4PLongGPU::compute(int eflag, int vflag)
                              success, atom->q, atom->nlocal, domain->boxlo, domain->prd);
   }
   if (!success) error->one(FLERR, "Insufficient memory on accelerator");
-  if (atom->molecular != Atom::ATOMIC && neighbor->ago == 0)
-    neighbor->build_topology();
 }
 
 /* ----------------------------------------------------------------------
@@ -170,7 +168,7 @@ void PairLJCutTIP4PLongGPU::init_style()
   }
   double cell_size = sqrt(maxcut) + neighbor->skin;
 
-  // ensure use of KSpace long-range solver, set g_ewald
+  // insure use of KSpace long-range solver, set g_ewald
   if (force->kspace == nullptr) error->all(FLERR, "Pair style requires a KSpace style");
   g_ewald = force->kspace->g_ewald;
 

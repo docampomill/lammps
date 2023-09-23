@@ -20,11 +20,11 @@ ComputeStyle(temp/chunk,ComputeTempChunk);
 #ifndef LMP_COMPUTE_TEMP_CHUNK_H
 #define LMP_COMPUTE_TEMP_CHUNK_H
 
-#include "compute_chunk.h"
+#include "compute.h"
 
 namespace LAMMPS_NS {
 
-class ComputeTempChunk : public ComputeChunk {
+class ComputeTempChunk : public Compute {
  public:
   ComputeTempChunk(class LAMMPS *, int, char **);
   ~ComputeTempChunk() override;
@@ -38,12 +38,20 @@ class ComputeTempChunk : public ComputeChunk {
   void restore_bias(int, double *) override;
   void restore_bias_all() override;
 
+  void lock_enable() override;
+  void lock_disable() override;
+  int lock_length() override;
+  void lock(class Fix *, bigint, bigint) override;
+  void unlock(class Fix *) override;
+
   double memory_usage() override;
 
  private:
-  int comflag, biasflag;
+  int nchunk, maxchunk, comflag, biasflag;
   int nvalues;
   int *which;
+  char *idchunk;
+  class ComputeChunkAtom *cchunk;
   double adof, cdof;
   char *id_bias;
   class Compute *tbias;    // ptr to additional bias compute
@@ -58,8 +66,10 @@ class ComputeTempChunk : public ComputeChunk {
   void temperature(int);
   void kecom(int);
   void internal(int);
-  void allocate() override;
+  void allocate();
 };
+
 }    // namespace LAMMPS_NS
+
 #endif
 #endif

@@ -25,9 +25,7 @@
    N. Salles, O. Politano, E. Amzallag and R. Tetot,
    Comput. Mater. Sci., 111 (2016) 181-189
 
-   Contact: Nicolas Salles <nsalles33@gmail.com>
-            Olivier Politano <olivier.politano@u-bourgogne.fr>
-            Robert Tétot <robert.tetot@universite-paris-saclay.fr>
+   Contact : lammps@u-bourgogne.fr
 
    This program is free software; you can redistribute it and/or
    modify it under the terms of the GNU General Public License as

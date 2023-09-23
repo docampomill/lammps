@@ -169,7 +169,7 @@ void ComputeCentroAtom::compute_peratom()
       jlist = firstneigh[i];
       jnum = numneigh[i];
 
-      // ensure distsq and nearest arrays are long enough
+      // insure distsq and nearest arrays are long enough
 
       if (jnum > maxneigh) {
         memory->destroy(distsq);

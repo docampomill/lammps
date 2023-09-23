@@ -28,8 +28,6 @@ action () {
 
 # list of files with optional dependcies
 
-action amoeba_convolution_gpu.cpp amoeba_convolution.cpp
-action amoeba_convolution_gpu.h amoeba_convolution.cpp
 action fix_gpu.cpp
 action fix_gpu.h
 action fix_nve_gpu.h
@@ -43,8 +41,6 @@ action fix_npt_gpu.cpp
 action fix_nve_asphere_gpu.h fix_nve_asphere.h
 action fix_nve_asphere_gpu.cpp fix_nve_asphere.cpp
 action gpu_extra.h
-action pair_amoeba_gpu.cpp pair_amoeba.cpp
-action pair_amoeba_gpu.h pair_amoeba.h
 action pair_beck_gpu.cpp pair_beck.cpp
 action pair_beck_gpu.h pair_beck.h
 action pair_born_coul_long_gpu.cpp pair_born_coul_long.cpp
@@ -93,8 +89,6 @@ action pair_gauss_gpu.cpp pair_gauss.cpp
 action pair_gauss_gpu.h pair_gauss.h
 action pair_gayberne_gpu.cpp pair_gayberne.cpp
 action pair_gayberne_gpu.h pair_gayberne.cpp
-action pair_hippo_gpu.cpp pair_hippo.cpp
-action pair_hippo_gpu.h pair_hippo.cpp
 action pair_lj96_cut_gpu.cpp pair_lj96_cut.cpp
 action pair_lj96_cut_gpu.h pair_lj96_cut.h
 action pair_lj_charmm_coul_long_gpu.cpp pair_lj_charmm_coul_long.cpp
@@ -119,10 +113,6 @@ action pair_lj_cut_coul_msm_gpu.cpp pair_lj_cut_coul_msm.cpp
 action pair_lj_cut_coul_msm_gpu.h pair_lj_cut_coul_msm.h
 action pair_lj_cut_gpu.cpp
 action pair_lj_cut_gpu.h
-action pair_lj_cut_dipole_long_gpu.cpp pair_lj_cut_dipole_long.cpp
-action pair_lj_cut_dipole_long_gpu.h pair_lj_cut_dipole_long.cpp
-action pair_lj_cut_tip4p_long_gpu.h pair_lj_cut_tip4p_long.cpp
-action pair_lj_cut_tip4p_long_gpu.cpp pair_lj_cut_tip4p_long.cpp
 action pair_lj_smooth_gpu.cpp pair_lj_smooth.cpp
 action pair_lj_smooth_gpu.h pair_lj_smooth.cpp
 action pair_lj_expand_gpu.cpp
@@ -165,6 +155,10 @@ action pppm_gpu.cpp pppm.cpp
 action pppm_gpu.h pppm.cpp
 action pair_ufm_gpu.cpp pair_ufm.cpp
 action pair_ufm_gpu.h pair_ufm.h
+action pair_lj_cut_dipole_long_gpu.cpp pair_lj_cut_dipole_long.cpp
+action pair_lj_cut_dipole_long_gpu.h pair_lj_cut_dipole_long.cpp
+action pair_lj_cut_tip4p_long_gpu.h pair_lj_cut_tip4p_long.cpp
+action pair_lj_cut_tip4p_long_gpu.cpp pair_lj_cut_tip4p_long.cpp
 
 # edit 2 Makefile.package files to include/exclude package info
 

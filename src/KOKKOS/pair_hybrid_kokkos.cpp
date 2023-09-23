@@ -44,19 +44,6 @@ PairHybridKokkos::PairHybridKokkos(LAMMPS *lmp) : PairHybrid(lmp)
 }
 
 /* ----------------------------------------------------------------------
-   init specific to this pair style
-------------------------------------------------------------------------- */
-
-void PairHybridKokkos::init_style()
-{
-  PairHybrid::init_style();
-
-  for (int m = 0; m < nstyles; m++)
-    if (styles[m]->execution_space == Host)
-      lmp->kokkos->allow_overlap = 0;
-}
-
-/* ----------------------------------------------------------------------
   call each sub-style's compute() or compute_outer() function
   accumulate sub-style global/peratom energy/virial in hybrid
   for global vflag = VIRIAL_PAIR:
@@ -170,6 +157,7 @@ void PairHybridKokkos::compute(int eflag, int vflag)
         }
       }
     }
+
   }
 
   delete [] saved_special;

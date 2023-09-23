@@ -21,13 +21,8 @@ PairStyle(granular,PairGranular);
 #define LMP_PAIR_GRANULAR_H
 
 #include "pair.h"
-#include <vector>
 
 namespace LAMMPS_NS {
-
-namespace Granular_NS {
-  class GranularModel;
-}
 
 class PairGranular : public Pair {
  public:
@@ -49,6 +44,7 @@ class PairGranular : public Pair {
   double radii2cut(double, double) override;
 
  protected:
+  double dt;
   int freeze_group_bit;
   int use_history;
 
@@ -67,21 +63,43 @@ class PairGranular : public Pair {
   int nmax;                // allocated size of mass_rigid
 
   void allocate();
-  void transfer_history(double *, double *, int, int) override;
-  void prune_models();
+  void transfer_history(double *, double *) override;
 
  private:
   int size_history;
-  int heat_flag;
+  int *history_transfer_factors;
 
-  // granular models
-  int nmodels, maxmodels;
-  class Granular_NS::GranularModel** models_list;
-  int **types_indices;
+  // model choices
+  int **normal_model, **damping_model;
+  int **tangential_model, **roll_model, **twist_model;
+  int **limit_damping;
+
+  // history flags
+  int normal_history, tangential_history, roll_history, twist_history;
+
+  // indices of history entries
+  int normal_history_index;
+  int tangential_history_index;
+  int roll_history_index;
+  int twist_history_index;
+
+  // per-type material coefficients
+  double **Emod, **poiss, **Gmod;
+
+  // per-type coefficients, set in pair coeff command
+  double ***normal_coeffs;
+  double ***tangential_coeffs;
+  double ***roll_coeffs;
+  double ***twist_coeffs;
 
   // optional user-specified global cutoff, per-type user-specified cutoffs
   double **cutoff_type;
   double cutoff_global;
+
+  double mix_stiffnessE(double, double, double, double);
+  double mix_stiffnessG(double, double, double, double);
+  double mix_geom(double, double);
+  double pulloff_distance(double, double, int, int);
 };
 
 }    // namespace LAMMPS_NS

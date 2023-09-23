@@ -174,7 +174,7 @@ int RegUnion::surface_interior(double *x, double cutoff)
         n++;
       }
     }
-    // increment by cmax instead of tmax to ensure
+    // increment by cmax instead of tmax to insure
     // possible wall IDs for sub-regions are non overlapping
     walloffset += region->cmax;
   }

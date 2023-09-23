@@ -49,10 +49,7 @@ PairMLIAP::PairMLIAP(LAMMPS *lmp) :
   restartinfo = 0;
   one_coeff = 1;
   manybody_flag = 1;
-  is_child = false;
   centroidstressflag = CENTROID_NOTAVAIL;
-  model=nullptr;
-  descriptor=nullptr;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -64,9 +61,7 @@ PairMLIAP::~PairMLIAP()
   delete model;
   delete descriptor;
   delete data;
-  model=nullptr;
-  descriptor=nullptr;
-  data=nullptr;
+
   if (allocated) {
     memory->destroy(setflag);
     memory->destroy(cutsq);
@@ -83,6 +78,7 @@ void PairMLIAP::compute(int eflag, int vflag)
 {
 
   // consistency checks
+
   if (data->ndescriptors != model->ndescriptors)
     error->all(FLERR, "Inconsistent model and descriptor descriptor count: {} vs {}",
                model->ndescriptors, data->ndescriptors);
@@ -133,18 +129,19 @@ void PairMLIAP::allocate()
 
 void PairMLIAP::settings(int narg, char ** arg)
 {
+  if (narg < 2) utils::missing_cmd_args(FLERR, "pair_style mliap", error);
 
-  // This is needed because the unit test calls settings twice
-  if (!is_child) {
-    if (narg < 2) utils::missing_cmd_args(FLERR, "pair_style mliap", error);
-    delete model;
-    model = nullptr;
-    delete descriptor;
-    descriptor = nullptr;
-  }
+  // set flags for required keywords
+
+  delete model;
+  model = nullptr;
+  delete descriptor;
+  descriptor = nullptr;
 
   // process keywords
+
   int iarg = 0;
+
   while (iarg < narg) {
     if (strcmp(arg[iarg],"model") == 0) {
       if (iarg+2 > narg) utils::missing_cmd_args(FLERR, "pair_style mliap model", error);
@@ -260,7 +257,7 @@ void PairMLIAP::coeff(int narg, char **arg)
 
   model->init();
   descriptor->init();
-  constexpr int gradgradflag = -1;
+  int gradgradflag = -1;
   delete data;
   data = new MLIAPData(lmp, gradgradflag, map, model, descriptor, this);
   data->init();

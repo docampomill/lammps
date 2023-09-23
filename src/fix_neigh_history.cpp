@@ -1,3 +1,4 @@
+// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://www.lammps.org/, Sandia National Laboratories
@@ -13,29 +14,32 @@
 
 #include "fix_neigh_history.h"
 
+#include "my_page.h"
 #include "atom.h"
 #include "comm.h"
-#include "error.h"
-#include "force.h"
-#include "memory.h"
-#include "modify.h"
-#include "my_page.h"
-#include "neigh_list.h"
 #include "neighbor.h"
+#include "neigh_list.h"
+#include "modify.h"
+#include "force.h"
 #include "pair.h"
+#include "memory.h"
+#include "error.h"
 
 #include <cstring>
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
 
+enum{DEFAULT,NPARTNER,PERPARTNER}; // also set in fix neigh/history/omp
+
 /* ---------------------------------------------------------------------- */
 
 FixNeighHistory::FixNeighHistory(LAMMPS *lmp, int narg, char **arg) :
-    Fix(lmp, narg, arg), pair(nullptr), npartner(nullptr), partner(nullptr), valuepartner(nullptr),
-    ipage_atom(nullptr), dpage_atom(nullptr), ipage_neigh(nullptr), dpage_neigh(nullptr)
+  Fix(lmp, narg, arg),
+  pair(nullptr), npartner(nullptr), partner(nullptr), valuepartner(nullptr),
+  ipage_atom(nullptr), dpage_atom(nullptr), ipage_neigh(nullptr), dpage_neigh(nullptr)
 {
-  if (narg != 4) error->all(FLERR, "Illegal fix NEIGH_HISTORY command");
+  if (narg != 4) error->all(FLERR,"Illegal fix NEIGH_HISTORY command");
 
   restart_peratom = 1;
   restart_global = 1;
@@ -46,20 +50,19 @@ FixNeighHistory::FixNeighHistory(LAMMPS *lmp, int narg, char **arg) :
 
   newton_pair = force->newton_pair;
 
-  dnum = utils::inumeric(FLERR, arg[3], false, lmp);
+  dnum = utils::inumeric(FLERR,arg[3],false,lmp);
   dnumbytes = dnum * sizeof(double);
 
   zeroes = new double[dnum];
   for (int i = 0; i < dnum; i++) zeroes[i] = 0.0;
 
   onesided = 0;
-  if (strcmp(id, "LINE_NEIGH_HISTORY") == 0) onesided = 1;
-  if (strcmp(id, "TRI_NEIGH_HISTORY") == 0) onesided = 1;
+  if (strcmp(id,"LINE_NEIGH_HISTORY") == 0) onesided = 1;
+  if (strcmp(id,"TRI_NEIGH_HISTORY") == 0) onesided = 1;
 
-  if (newton_pair)
-    comm_reverse = 1;    // just for single npartner value
-                         // variable-size history communicated via
-                         // reverse_comm_variable()
+  if (newton_pair) comm_reverse = 1;   // just for single npartner value
+                                       // variable-size history communicated via
+                                       // reverse_comm_variable()
 
   // perform initial allocation of atom-based arrays
   // register with atom class
@@ -101,12 +104,12 @@ FixNeighHistory::~FixNeighHistory()
 
   // unregister this fix so atom class doesn't invoke it any more
 
-  atom->delete_callback(id, Atom::GROW);
-  atom->delete_callback(id, Atom::RESTART);
+  atom->delete_callback(id,Atom::GROW);
+  atom->delete_callback(id,Atom::RESTART);
 
   // delete locally stored arrays
 
-  delete[] zeroes;
+  delete [] zeroes;
 
   memory->sfree(firstflag);
   memory->sfree(firstvalue);
@@ -115,10 +118,10 @@ FixNeighHistory::~FixNeighHistory()
   memory->sfree(partner);
   memory->sfree(valuepartner);
 
-  delete[] ipage_atom;
-  delete[] dpage_atom;
-  delete[] ipage_neigh;
-  delete[] dpage_neigh;
+  delete [] ipage_atom;
+  delete [] dpage_atom;
+  delete [] ipage_neigh;
+  delete [] dpage_neigh;
 
   // to better detect use-after-delete errors
 
@@ -147,22 +150,21 @@ int FixNeighHistory::setmask()
 
 void FixNeighHistory::init()
 {
-  if (atom->tag_enable == 0) error->all(FLERR, "Neighbor history requires that atoms have IDs");
+  if (atom->tag_enable == 0)
+    error->all(FLERR,"Neighbor history requires atoms have IDs");
 
   // this fix must come before any fix which migrates atoms in its pre_exchange()
   // because this fix's pre_exchange() creates per-atom data structure
   // that data must be current for atom migration to carry it along
 
-  for (const auto &ifix : modify->get_fix_list()) {
-    if (ifix == this) break;
-    if (ifix->pre_exchange_migrate)
-      error->all(FLERR,
-                 "Pair styles using neighbor history must be defined before "
-                 "fix {} {} which migrates atoms in pre_exchange",
-                 ifix->id, ifix->style);
+  for (int i = 0; i < modify->nfix; i++) {
+    if (modify->fix[i] == this) break;
+    if (modify->fix[i]->pre_exchange_migrate)
+      error->all(FLERR,"Fix neigh_history comes after a fix which "
+                 "migrates atoms in pre_exchange");
   }
 
-  // setup data structs
+  // setup data struct
 
   allocate_pages();
 }
@@ -180,10 +182,10 @@ void FixNeighHistory::allocate_pages()
   if (oneatom != neighbor->oneatom) create = 1;
 
   if (create) {
-    delete[] ipage_atom;
-    delete[] dpage_atom;
-    delete[] ipage_neigh;
-    delete[] dpage_neigh;
+    delete [] ipage_atom;
+    delete [] dpage_atom;
+    delete [] ipage_neigh;
+    delete [] dpage_neigh;
 
     pgsize = neighbor->pgsize;
     oneatom = neighbor->oneatom;
@@ -193,10 +195,10 @@ void FixNeighHistory::allocate_pages()
     ipage_neigh = new MyPage<int>[nmypage];
     dpage_neigh = new MyPage<double>[nmypage];
     for (int i = 0; i < nmypage; i++) {
-      ipage_atom[i].init(oneatom, pgsize);
-      dpage_atom[i].init(dnum * oneatom, dnum * pgsize);
-      ipage_neigh[i].init(oneatom, pgsize);
-      dpage_neigh[i].init(dnum * oneatom, dnum * pgsize);
+      ipage_atom[i].init(oneatom,pgsize);
+      dpage_atom[i].init(dnum*oneatom,dnum*pgsize);
+      ipage_neigh[i].init(oneatom,pgsize);
+      dpage_neigh[i].init(dnum*oneatom,dnum*pgsize);
     }
   }
 }
@@ -226,12 +228,9 @@ void FixNeighHistory::setup_post_neighbor()
 
 void FixNeighHistory::pre_exchange()
 {
-  if (onesided)
-    pre_exchange_onesided();
-  else if (newton_pair)
-    pre_exchange_newton();
-  else
-    pre_exchange_no_newton();
+  if (onesided) pre_exchange_onesided();
+  else if (newton_pair) pre_exchange_newton();
+  else pre_exchange_no_newton();
 }
 
 /* ----------------------------------------------------------------------
@@ -242,10 +241,10 @@ void FixNeighHistory::pre_exchange()
 
 void FixNeighHistory::pre_exchange_onesided()
 {
-  int i, j, ii, jj, m, n, inum, jnum;
-  int *ilist, *jlist, *numneigh, **firstneigh;
+  int i,j,ii,jj,m,n,inum,jnum;
+  int *ilist,*jlist,*numneigh,**firstneigh;
   int *allflags;
-  double *allvalues, *onevalues;
+  double *allvalues,*onevalues;
 
   // NOTE: all operations until very end are with nlocal_neigh <= current nlocal
   // because previous neigh list was built with nlocal_neigh
@@ -284,9 +283,9 @@ void FixNeighHistory::pre_exchange_onesided()
     i = ilist[ii];
     n = npartner[i];
     partner[i] = ipage_atom->get(n);
-    valuepartner[i] = dpage_atom->get(dnum * n);
+    valuepartner[i] = dpage_atom->get(dnum*n);
     if (partner[i] == nullptr || valuepartner[i] == nullptr)
-      error->one(FLERR, "Neighbor history overflow, boost neigh_modify one");
+      error->one(FLERR,"Neighbor history overflow, boost neigh_modify one");
   }
 
   // 2nd loop over neighbor list, I = sphere, J = tri
@@ -304,12 +303,12 @@ void FixNeighHistory::pre_exchange_onesided()
 
     for (jj = 0; jj < jnum; jj++) {
       if (allflags[jj]) {
-        onevalues = &allvalues[dnum * jj];
+        onevalues = &allvalues[dnum*jj];
         j = jlist[jj];
         j &= NEIGHMASK;
         m = npartner[i]++;
         partner[i][m] = tag[j];
-        memcpy(&valuepartner[i][dnum * m], onevalues, dnumbytes);
+        memcpy(&valuepartner[i][dnum*m],onevalues,dnumbytes);
       }
     }
   }
@@ -318,8 +317,8 @@ void FixNeighHistory::pre_exchange_onesided()
   // maxexchange = max # of values for any Comm::exchange() atom
 
   maxpartner = 0;
-  for (i = 0; i < nlocal_neigh; i++) maxpartner = MAX(maxpartner, npartner[i]);
-  maxexchange = (dnum + 1) * maxpartner + 1;
+  for (i = 0; i < nlocal_neigh; i++) maxpartner = MAX(maxpartner,npartner[i]);
+  maxexchange = (dnum+1)*maxpartner + 1;
 
   // zero npartner values from previous nlocal_neigh to current nlocal
 
@@ -334,11 +333,10 @@ void FixNeighHistory::pre_exchange_onesided()
 
 void FixNeighHistory::pre_exchange_newton()
 {
-  int i, j, ii, jj, m, n, inum, jnum;
-  int *ilist, *jlist, *numneigh, **firstneigh;
+  int i,j,ii,jj,m,n,inum,jnum;
+  int *ilist,*jlist,*numneigh,**firstneigh;
   int *allflags;
-  double *allvalues, *onevalues, *jvalues;
-  int *type = atom->type;
+  double *allvalues,*onevalues,*jvalues;
 
   // NOTE: all operations until very end are with
   //   nlocal_neigh  <= current nlocal and nall_neigh
@@ -353,10 +351,7 @@ void FixNeighHistory::pre_exchange_newton()
   // 1st loop over neighbor list
   // calculate npartner for owned+ghost atoms
 
-  // Ensure npartner is zeroed across all atoms, nall_neigh can be less than nall
-  // when writing restarts when comm calls are made but modify->post_neighbor() isn't
-  int nall = atom->nlocal + atom->nghost;
-  for (i = 0; i < MAX(nall_neigh, nall); i++) npartner[i] = 0;
+  for (i = 0; i < nall_neigh; i++) npartner[i] = 0;
 
   tagint *tag = atom->tag;
   NeighList *list = pair->list;
@@ -392,18 +387,18 @@ void FixNeighHistory::pre_exchange_newton()
     i = ilist[ii];
     n = npartner[i];
     partner[i] = ipage_atom->get(n);
-    valuepartner[i] = dpage_atom->get(dnum * n);
+    valuepartner[i] = dpage_atom->get(dnum*n);
     if (partner[i] == nullptr || valuepartner[i] == nullptr) {
-      error->one(FLERR, "Neighbor history overflow, boost neigh_modify one");
+      error->one(FLERR,"Neighbor history overflow, boost neigh_modify one");
     }
   }
 
   for (i = nlocal_neigh; i < nall_neigh; i++) {
     n = npartner[i];
     partner[i] = ipage_atom->get(n);
-    valuepartner[i] = dpage_atom->get(dnum * n);
+    valuepartner[i] = dpage_atom->get(dnum*n);
     if (partner[i] == nullptr || valuepartner[i] == nullptr) {
-      error->one(FLERR, "Neighbor history overflow, boost neigh_modify one");
+      error->one(FLERR,"Neighbor history overflow, boost neigh_modify one");
     }
   }
 
@@ -411,7 +406,7 @@ void FixNeighHistory::pre_exchange_newton()
   // store partner IDs and values for owned+ghost atoms
   // re-zero npartner to use as counter
 
-  for (i = 0; i < MAX(nall_neigh, nall); i++) npartner[i] = 0;
+  for (i = 0; i < nall_neigh; i++) npartner[i] = 0;
 
   for (ii = 0; ii < inum; ii++) {
     i = ilist[ii];
@@ -422,19 +417,18 @@ void FixNeighHistory::pre_exchange_newton()
 
     for (jj = 0; jj < jnum; jj++) {
       if (allflags[jj]) {
-        onevalues = &allvalues[dnum * jj];
+        onevalues = &allvalues[dnum*jj];
         j = jlist[jj];
         j &= NEIGHMASK;
         m = npartner[i]++;
         partner[i][m] = tag[j];
-        memcpy(&valuepartner[i][dnum * m], onevalues, dnumbytes);
+        memcpy(&valuepartner[i][dnum*m],onevalues,dnumbytes);
         m = npartner[j]++;
         partner[j][m] = tag[i];
-        jvalues = &valuepartner[j][dnum * m];
+        jvalues = &valuepartner[j][dnum*m];
         if (pair->nondefault_history_transfer)
-          pair->transfer_history(onevalues, jvalues, type[i], type[j]);
-        else
-          for (n = 0; n < dnum; n++) jvalues[n] = -onevalues[n];
+          pair->transfer_history(onevalues,jvalues);
+        else for (n = 0; n < dnum; n++) jvalues[n] = -onevalues[n];
       }
     }
   }
@@ -451,8 +445,8 @@ void FixNeighHistory::pre_exchange_newton()
   // maxexchange = max # of values for any Comm::exchange() atom
 
   maxpartner = 0;
-  for (i = 0; i < nlocal_neigh; i++) maxpartner = MAX(maxpartner, npartner[i]);
-  maxexchange = (dnum + 1) * maxpartner + 1;
+  for (i = 0; i < nlocal_neigh; i++) maxpartner = MAX(maxpartner,npartner[i]);
+  maxexchange = (dnum+1)*maxpartner + 1;
 
   // zero npartner values from previous nlocal_neigh to current nlocal
 
@@ -468,11 +462,10 @@ void FixNeighHistory::pre_exchange_newton()
 
 void FixNeighHistory::pre_exchange_no_newton()
 {
-  int i, j, ii, jj, m, n, inum, jnum;
-  int *ilist, *jlist, *numneigh, **firstneigh;
+  int i,j,ii,jj,m,n,inum,jnum;
+  int *ilist,*jlist,*numneigh,**firstneigh;
   int *allflags;
-  double *allvalues, *onevalues, *jvalues;
-  int *type = atom->type;
+  double *allvalues,*onevalues,*jvalues;
 
   // NOTE: all operations until very end are with nlocal_neigh <= current nlocal
   // because previous neigh list was built with nlocal_neigh
@@ -517,9 +510,9 @@ void FixNeighHistory::pre_exchange_no_newton()
     i = ilist[ii];
     n = npartner[i];
     partner[i] = ipage_atom->get(n);
-    valuepartner[i] = dpage_atom->get(dnum * n);
+    valuepartner[i] = dpage_atom->get(dnum*n);
     if (partner[i] == nullptr || valuepartner[i] == nullptr)
-      error->one(FLERR, "Neighbor history overflow, boost neigh_modify one");
+      error->one(FLERR,"Neighbor history overflow, boost neigh_modify one");
   }
 
   // 2nd loop over neighbor list
@@ -537,20 +530,19 @@ void FixNeighHistory::pre_exchange_no_newton()
 
     for (jj = 0; jj < jnum; jj++) {
       if (allflags[jj]) {
-        onevalues = &allvalues[dnum * jj];
+        onevalues = &allvalues[dnum*jj];
         j = jlist[jj];
         j &= NEIGHMASK;
         m = npartner[i]++;
         partner[i][m] = tag[j];
-        memcpy(&valuepartner[i][dnum * m], onevalues, dnumbytes);
+        memcpy(&valuepartner[i][dnum*m],onevalues,dnumbytes);
         if (j < nlocal_neigh) {
           m = npartner[j]++;
           partner[j][m] = tag[i];
-          jvalues = &valuepartner[j][dnum * m];
+          jvalues = &valuepartner[j][dnum*m];
           if (pair->nondefault_history_transfer)
-            pair->transfer_history(onevalues, jvalues, type[i], type[j]);
-          else
-            for (n = 0; n < dnum; n++) jvalues[n] = -onevalues[n];
+            pair->transfer_history(onevalues, jvalues);
+          else for (n = 0; n < dnum; n++) jvalues[n] = -onevalues[n];
         }
       }
     }
@@ -560,8 +552,8 @@ void FixNeighHistory::pre_exchange_no_newton()
   // maxexchange = max # of values for any Comm::exchange() atom
 
   maxpartner = 0;
-  for (i = 0; i < nlocal_neigh; i++) maxpartner = MAX(maxpartner, npartner[i]);
-  maxexchange = (dnum + 1) * maxpartner + 1;
+  for (i = 0; i < nlocal_neigh; i++) maxpartner = MAX(maxpartner,npartner[i]);
+  maxexchange = (dnum+1)*maxpartner + 1;
 
   // zero npartner values from previous nlocal_neigh to current nlocal
 
@@ -584,9 +576,9 @@ void FixNeighHistory::min_pre_exchange()
 
 void FixNeighHistory::post_neighbor()
 {
-  int i, j, m, ii, jj, nn, np, inum, jnum, rflag;
+  int i,j,m,ii,jj,nn,np,inum,jnum,rflag;
   tagint jtag;
-  int *ilist, *jlist, *numneigh, **firstneigh;
+  int *ilist,*jlist,*numneigh,**firstneigh;
   int *allflags;
   double *allvalues;
 
@@ -603,9 +595,10 @@ void FixNeighHistory::post_neighbor()
     memory->sfree(firstflag);
     memory->sfree(firstvalue);
     maxatom = nall;
-    firstflag = (int **) memory->smalloc(maxatom * sizeof(int *), "neighbor_history:firstflag");
-    firstvalue =
-        (double **) memory->smalloc(maxatom * sizeof(double *), "neighbor_history:firstvalue");
+    firstflag = (int **)
+      memory->smalloc(maxatom*sizeof(int *),"neighbor_history:firstflag");
+    firstvalue = (double **)
+      memory->smalloc(maxatom*sizeof(double *),"neighbor_history:firstvalue");
   }
 
   // loop over newly built neighbor list
@@ -627,7 +620,7 @@ void FixNeighHistory::post_neighbor()
     jlist = firstneigh[i];
     jnum = numneigh[i];
     firstflag[i] = allflags = ipage_neigh->get(jnum);
-    firstvalue[i] = allvalues = dpage_neigh->get(jnum * dnum);
+    firstvalue[i] = allvalues = dpage_neigh->get(jnum*dnum);
     np = npartner[i];
     nn = 0;
 
@@ -657,14 +650,14 @@ void FixNeighHistory::post_neighbor()
           if (partner[i][m] == jtag) break;
         if (m < np) {
           allflags[jj] = 1;
-          memcpy(&allvalues[nn], &valuepartner[i][dnum * m], dnumbytes);
+          memcpy(&allvalues[nn],&valuepartner[i][dnum*m],dnumbytes);
         } else {
           allflags[jj] = 0;
-          memcpy(&allvalues[nn], zeroes, dnumbytes);
+          memcpy(&allvalues[nn],zeroes,dnumbytes);
         }
       } else {
         allflags[jj] = 0;
-        memcpy(&allvalues[nn], zeroes, dnumbytes);
+        memcpy(&allvalues[nn],zeroes,dnumbytes);
       }
       nn += dnum;
     }
@@ -692,11 +685,11 @@ void FixNeighHistory::post_run()
 double FixNeighHistory::memory_usage()
 {
   int nmax = atom->nmax;
-  double bytes = (double) nmax * sizeof(int);      // npartner
-  bytes += (double) nmax * sizeof(tagint *);       // partner
-  bytes += (double) nmax * sizeof(double *);       // valuepartner
-  bytes += (double) maxatom * sizeof(int *);       // firstflag
-  bytes += (double) maxatom * sizeof(double *);    // firstvalue
+  double bytes = (double)nmax * sizeof(int);    // npartner
+  bytes += (double)nmax * sizeof(tagint *);     // partner
+  bytes += (double)nmax * sizeof(double *);     // valuepartner
+  bytes += (double)maxatom * sizeof(int *);     // firstflag
+  bytes += (double)maxatom * sizeof(double *);  // firstvalue
 
   int nmypage = comm->nthreads;
   for (int i = 0; i < nmypage; i++) {
@@ -715,10 +708,11 @@ double FixNeighHistory::memory_usage()
 
 void FixNeighHistory::grow_arrays(int nmax)
 {
-  memory->grow(npartner, nmax, "neighbor_history:npartner");
-  partner =
-      (tagint **) memory->srealloc(partner, nmax * sizeof(tagint *), "neighbor_history:partner");
-  valuepartner = (double **) memory->srealloc(valuepartner, nmax * sizeof(double *),
+  memory->grow(npartner,nmax,"neighbor_history:npartner");
+  partner = (tagint **) memory->srealloc(partner,nmax*sizeof(tagint *),
+                                         "neighbor_history:partner");
+  valuepartner = (double **) memory->srealloc(valuepartner,
+                                              nmax*sizeof(double *),
                                               "neighbor_history:valuepartner");
 }
 
@@ -754,13 +748,14 @@ void FixNeighHistory::set_arrays(int i)
 
 int FixNeighHistory::pack_reverse_comm_size(int n, int first)
 {
-  int i, last;
+  int i,last;
   int dnump1 = dnum + 1;
 
   int m = 0;
   last = first + n;
 
-  for (i = first; i < last; i++) m += 1 + dnump1 * npartner[i];
+  for (i = first; i < last; i++)
+    m += 1 + dnump1*npartner[i];
 
   return m;
 }
@@ -771,24 +766,25 @@ int FixNeighHistory::pack_reverse_comm_size(int n, int first)
 
 int FixNeighHistory::pack_reverse_comm(int n, int first, double *buf)
 {
-  int i, k, last;
+  int i,k,last;
 
   int m = 0;
   last = first + n;
 
   if (commflag == NPARTNER) {
-    for (i = first; i < last; i++) { buf[m++] = npartner[i]; }
+    for (i = first; i < last; i++) {
+      buf[m++] = npartner[i];
+    }
   } else if (commflag == PERPARTNER) {
     for (i = first; i < last; i++) {
       buf[m++] = npartner[i];
       for (k = 0; k < npartner[i]; k++) {
-        buf[m++] = ubuf(partner[i][k]).d;
-        memcpy(&buf[m], &valuepartner[i][dnum * k], dnumbytes);
+        buf[m++] = partner[i][k];
+        memcpy(&buf[m],&valuepartner[i][dnum*k],dnumbytes);
         m += dnum;
       }
     }
-  } else
-    error->all(FLERR, "Unsupported comm mode in neighbor history");
+  } else error->all(FLERR,"Unsupported comm mode in neighbor history");
 
   return m;
 }
@@ -799,28 +795,27 @@ int FixNeighHistory::pack_reverse_comm(int n, int first, double *buf)
 
 void FixNeighHistory::unpack_reverse_comm(int n, int *list, double *buf)
 {
-  int i, j, k, kk, ncount;
+  int i,j,k,kk,ncount;
 
   int m = 0;
 
   if (commflag == NPARTNER) {
     for (i = 0; i < n; i++) {
       j = list[i];
-      npartner[j] += static_cast<int>(buf[m++]);
+      npartner[j] += static_cast<int> (buf[m++]);
     }
   } else if (commflag == PERPARTNER) {
     for (i = 0; i < n; i++) {
       j = list[i];
-      ncount = static_cast<int>(buf[m++]);
+      ncount = static_cast<int> (buf[m++]);
       for (k = 0; k < ncount; k++) {
         kk = npartner[j]++;
-        partner[j][kk] = static_cast<tagint>(ubuf(buf[m++]).i);
-        memcpy(&valuepartner[j][dnum * kk], &buf[m], dnumbytes);
+        partner[j][kk] = static_cast<tagint> (buf[m++]);
+        memcpy(&valuepartner[j][dnum*kk],&buf[m],dnumbytes);
         m += dnum;
       }
     }
-  } else
-    error->all(FLERR, "Unsupported comm mode in neighbor history");
+  } else error->all(FLERR,"Unsupported comm mode in neighbor history");
 }
 
 /* ----------------------------------------------------------------------
@@ -832,8 +827,8 @@ int FixNeighHistory::pack_exchange(int i, double *buf)
   int m = 0;
   buf[m++] = npartner[i];
   for (int n = 0; n < npartner[i]; n++) {
-    buf[m++] = ubuf(partner[i][n]).d;
-    memcpy(&buf[m], &valuepartner[i][dnum * n], dnumbytes);
+    buf[m++] = partner[i][n];
+    memcpy(&buf[m],&valuepartner[i][dnum*n],dnumbytes);
     m += dnum;
   }
   return m;
@@ -848,13 +843,13 @@ int FixNeighHistory::unpack_exchange(int nlocal, double *buf)
   // allocate new chunks from ipage_atom,dpage_atom for incoming values
 
   int m = 0;
-  npartner[nlocal] = static_cast<int>(buf[m++]);
-  maxpartner = MAX(maxpartner, npartner[nlocal]);
+  npartner[nlocal] = static_cast<int> (buf[m++]);
+  maxpartner = MAX(maxpartner,npartner[nlocal]);
   partner[nlocal] = ipage_atom->get(npartner[nlocal]);
-  valuepartner[nlocal] = dpage_atom->get(dnum * npartner[nlocal]);
+  valuepartner[nlocal] = dpage_atom->get(dnum*npartner[nlocal]);
   for (int n = 0; n < npartner[nlocal]; n++) {
-    partner[nlocal][n] = static_cast<tagint>(ubuf(buf[m++]).i);
-    memcpy(&valuepartner[nlocal][dnum * n], &buf[m], dnumbytes);
+    partner[nlocal][n] = static_cast<tagint> (buf[m++]);
+    memcpy(&valuepartner[nlocal][dnum*n],&buf[m],dnumbytes);
     m += dnum;
   }
   return m;
@@ -872,9 +867,10 @@ void FixNeighHistory::write_restart(FILE *fp)
   pre_exchange();
   if (comm->me == 0) {
     int size = 0;
-    fwrite(&size, sizeof(int), 1, fp);
+    fwrite(&size,sizeof(int),1,fp);
   }
 }
+
 
 /* ----------------------------------------------------------------------
    pack values in local atom-based arrays for restart file
@@ -885,8 +881,8 @@ int FixNeighHistory::pack_restart(int i, double *buf)
   int m = 1;
   buf[m++] = npartner[i];
   for (int n = 0; n < npartner[i]; n++) {
-    buf[m++] = ubuf(partner[i][n]).d;
-    memcpy(&buf[m], &valuepartner[i][dnum * n], dnumbytes);
+    buf[m++] = partner[i][n];
+    memcpy(&buf[m],&valuepartner[i][dnum*n],dnumbytes);
     m += dnum;
   }
   // pack buf[0] this way because other fixes unpack it
@@ -910,18 +906,18 @@ void FixNeighHistory::unpack_restart(int nlocal, int nth)
   double **extra = atom->extra;
 
   int m = 0;
-  for (int i = 0; i < nth; i++) m += static_cast<int>(extra[nlocal][m]);
+  for (int i = 0; i < nth; i++) m += static_cast<int> (extra[nlocal][m]);
   m++;
 
   // allocate new chunks from ipage_atom,dpage_atom for incoming values
 
-  npartner[nlocal] = static_cast<int>(extra[nlocal][m++]);
-  maxpartner = MAX(maxpartner, npartner[nlocal]);
+  npartner[nlocal] = static_cast<int> (extra[nlocal][m++]);
+  maxpartner = MAX(maxpartner,npartner[nlocal]);
   partner[nlocal] = ipage_atom->get(npartner[nlocal]);
-  valuepartner[nlocal] = dpage_atom->get(dnum * npartner[nlocal]);
+  valuepartner[nlocal] = dpage_atom->get(dnum*npartner[nlocal]);
   for (int n = 0; n < npartner[nlocal]; n++) {
-    partner[nlocal][n] = static_cast<tagint>(ubuf(extra[nlocal][m++]).i);
-    memcpy(&valuepartner[nlocal][dnum * n], &extra[nlocal][m], dnumbytes);
+    partner[nlocal][n] = static_cast<tagint> (extra[nlocal][m++]);
+    memcpy(&valuepartner[nlocal][dnum*n],&extra[nlocal][m],dnumbytes);
     m += dnum;
   }
 }
@@ -935,8 +931,8 @@ int FixNeighHistory::maxsize_restart()
   // maxpartner_all = max # of touching partners across all procs
 
   int maxpartner_all;
-  MPI_Allreduce(&maxpartner, &maxpartner_all, 1, MPI_INT, MPI_MAX, world);
-  return (dnum + 1) * maxpartner_all + 2;
+  MPI_Allreduce(&maxpartner,&maxpartner_all,1,MPI_INT,MPI_MAX,world);
+  return (dnum+1)*maxpartner_all + 2;
 }
 
 /* ----------------------------------------------------------------------
@@ -945,5 +941,5 @@ int FixNeighHistory::maxsize_restart()
 
 int FixNeighHistory::size_restart(int nlocal)
 {
-  return (dnum + 1) * npartner[nlocal] + 2;
+  return (dnum+1)*npartner[nlocal] + 2;
 }

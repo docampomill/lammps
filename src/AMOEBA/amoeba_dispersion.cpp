@@ -285,7 +285,7 @@ void PairAmoeba::dispersion_kspace()
   // gridpre = my portion of 3d grid in brick decomp w/ ghost values
   // zeroed by zero()
 
-  FFT_SCALAR ***gridpre = (FFT_SCALAR ***) d_kspace->zero();
+  double ***gridpre = (double ***) d_kspace->zero();
 
   // map atoms to grid
 
@@ -294,7 +294,7 @@ void PairAmoeba::dispersion_kspace()
   // pre-convolution operations including forward FFT
   // gridfft = my portion of complex 3d grid in FFT decomposition
 
-  FFT_SCALAR *gridfft = d_kspace->pre_convolution();
+  double *gridfft = d_kspace->pre_convolution();
 
   // ---------------------
   // convolution operation

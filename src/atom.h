@@ -83,7 +83,6 @@ class Atom : protected Pointers {
   double **omega, **angmom, **torque;
   int *ellipsoid, *line, *tri, *body;
   double **quat;
-  double *temperature, *heatflow;
 
   // molecular systems
 
@@ -146,6 +145,12 @@ class Atom : protected Pointers {
   double *edpd_cv;    // heat capacity
   int cc_species;
 
+  // MESONT package
+
+  double *length;
+  int *buckling;
+  tagint **bond_nt;
+
   // MACHDYN package
 
   double *contact_radius;
@@ -168,7 +173,7 @@ class Atom : protected Pointers {
 
   // DIELECTRIC package
 
-  double *area, *ed, *em, *epsilon, *curvature, *q_scaled;
+  double *area, *ed, *em, *epsilon, *curvature, *q_unscaled;
 
   // end of customization section
   // --------------------------------------------------------------------
@@ -187,7 +192,6 @@ class Atom : protected Pointers {
   int molecule_flag, molindex_flag, molatom_flag;
   int q_flag, mu_flag;
   int rmass_flag, radius_flag, omega_flag, torque_flag, angmom_flag, quat_flag;
-  int temperature_flag, heatflow_flag;
   int vfrac_flag, spin_flag, eradius_flag, ervel_flag, erforce_flag;
   int cs_flag, csforce_flag, vforce_flag, ervelforce_flag, etag_flag;
   int rho_flag, esph_flag, cv_flag, vest_flag;
@@ -312,7 +316,7 @@ class Atom : protected Pointers {
   void create_avec(const std::string &, int, char **, int);
   virtual AtomVec *new_avec(const std::string &, int, int &);
 
-  virtual void init();
+  void init();
   void setup();
 
   std::string get_style();
@@ -366,6 +370,8 @@ class Atom : protected Pointers {
   virtual int add_custom(const char *, int, int);
   virtual void remove_custom(int, int, int);
 
+  virtual void sync_modify(ExecutionSpace, unsigned int, unsigned int) {}
+
   void *extract(const char *);
   int extract_datatype(const char *);
 
@@ -383,7 +389,7 @@ class Atom : protected Pointers {
   // map lookup function inlined for efficiency
   // return -1 if no map defined
 
-  virtual inline int map(tagint global)
+  inline int map(tagint global)
   {
     if (map_style == 1)
       return map_array[global];
@@ -396,10 +402,10 @@ class Atom : protected Pointers {
   virtual void map_init(int check = 1);
   virtual void map_clear();
   virtual void map_set();
-  virtual void map_one(tagint, int);
+  void map_one(tagint, int);
   int map_style_set();
   virtual void map_delete();
-  virtual int map_find_hash(tagint);
+  int map_find_hash(tagint);
 
  protected:
   // global to local ID mapping

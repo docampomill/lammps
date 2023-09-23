@@ -99,9 +99,6 @@ class Fix : protected Pointers {
   int size_local_cols;    // 0 = vector, N = columns in local array
   int local_freq;         // frequency local data is available at
 
-  int pergrid_flag;       // 0/1 if per-grid data is stored
-  int pergrid_freq;       // frequency per-grid data is available at
-
   int extscalar;    // 0/1 if global scalar is intensive/extensive
   int extvector;    // 0/1/-1 if global vector is all int/ext/extlist
   int *extlist;     // list of 0/1 int/ext for each vec component
@@ -127,13 +124,10 @@ class Fix : protected Pointers {
 
   int restart_reset;    // 1 if restart just re-initialized fix
 
-  // KOKKOS flags and variables
+  // KOKKOS host/device flag and data masks
 
   int kokkosable;             // 1 if Kokkos fix
   int forward_comm_device;    // 1 if forward comm on Device
-  int exchange_comm_device;   // 1 if exchange comm on Device
-  int fuse_integrate_flag;    // 1 if can fuse initial integrate with final integrate
-  int sort_device;            // 1 if sort on Device
   ExecutionSpace execution_space;
   unsigned int datamask_read, datamask_modify;
 
@@ -162,7 +156,6 @@ class Fix : protected Pointers {
   virtual void pre_reverse(int, int) {}
   virtual void post_force(int) {}
   virtual void final_integrate() {}
-  virtual void fused_integrate(int) {}
   virtual void end_of_step() {}
   virtual void post_run() {}
   virtual void write_restart(FILE *) {}
@@ -215,22 +208,12 @@ class Fix : protected Pointers {
   virtual int pack_reverse_comm(int, int, double *) { return 0; }
   virtual void unpack_reverse_comm(int, int *, double *) {}
 
-  virtual void reset_grid(){};
-
   virtual void pack_forward_grid(int, void *, int, int *){};
   virtual void unpack_forward_grid(int, void *, int, int *){};
   virtual void pack_reverse_grid(int, void *, int, int *){};
   virtual void unpack_reverse_grid(int, void *, int, int *){};
-  virtual void pack_remap_grid(int, void *, int, int *){};
-  virtual void unpack_remap_grid(int, void *, int, int *){};
-  virtual int unpack_read_grid(int, char *) {return 0;};
-  virtual void pack_write_grid(int, void *){};
-  virtual void unpack_write_grid(int, void *, int *){};
-
-  virtual int get_grid_by_name(const std::string &, int &) { return -1; };
-  virtual void *get_grid_by_index(int) { return nullptr; };
-  virtual int get_griddata_by_name(int, const std::string &, int &) { return -1; };
-  virtual void *get_griddata_by_index(int) { return nullptr; };
+  virtual void pack_gather_grid(int, void *){};
+  virtual void unpack_gather_grid(int, void *, void *, int, int, int, int, int, int){};
 
   virtual double compute_scalar() { return 0.0; }
   virtual double compute_vector(int) { return 0.0; }

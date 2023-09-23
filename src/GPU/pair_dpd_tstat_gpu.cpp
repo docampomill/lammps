@@ -272,8 +272,6 @@ void PairDPDTstatGPU::compute(int eflag, int vflag)
   }
   if (!success) error->one(FLERR, "Insufficient memory on accelerator");
 
-  if (atom->molecular != Atom::ATOMIC && neighbor->ago == 0)
-    neighbor->build_topology();
   if (host_start < inum) {
     cpu_time = platform::walltime();
     cpu_compute(host_start, inum, eflag, vflag, ilist, numneigh, firstneigh);
@@ -331,7 +329,7 @@ void PairDPDTstatGPU::cpu_compute(int start, int inum, int /* eflag */, int /* v
   int i, j, ii, jj, jnum, itype, jtype;
   double xtmp, ytmp, ztmp, delx, dely, delz, fpair;
   double vxtmp, vytmp, vztmp, delvx, delvy, delvz;
-  double rsq, r, rinv, dot, wd, randnum, factor_dpd, factor_sqrt;
+  double rsq, r, rinv, dot, wd, randnum, factor_dpd;
   int *jlist;
   tagint itag, jtag;
 
@@ -362,7 +360,6 @@ void PairDPDTstatGPU::cpu_compute(int start, int inum, int /* eflag */, int /* v
     for (jj = 0; jj < jnum; jj++) {
       j = jlist[jj];
       factor_dpd = special_lj[sbmask(j)];
-      factor_sqrt = special_sqrt[sbmask(j)];
       j &= NEIGHMASK;
 
       delx = xtmp - x[j][0];
@@ -395,9 +392,9 @@ void PairDPDTstatGPU::cpu_compute(int start, int inum, int /* eflag */, int /* v
         // drag force = -gamma * wd^2 * (delx dot delv) / r
         // random force = sigma * wd * rnd * dtinvsqrt;
 
-        fpair = -factor_dpd * gamma[itype][jtype] * wd * wd * dot * rinv;
-        fpair += factor_sqrt * sigma[itype][jtype] * wd * randnum * dtinvsqrt;
-        fpair *= rinv;
+        fpair = -gamma[itype][jtype] * wd * wd * dot * rinv;
+        fpair += sigma[itype][jtype] * wd * randnum * dtinvsqrt;
+        fpair *= factor_dpd * rinv;
 
         f[i][0] += delx * fpair;
         f[i][1] += dely * fpair;

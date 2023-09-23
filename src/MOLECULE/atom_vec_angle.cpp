@@ -82,7 +82,7 @@ void AtomVecAngle::grow_pointers()
 
 void AtomVecAngle::pack_restart_pre(int ilocal)
 {
-  // ensure negative vectors are needed length
+  // insure negative vectors are needed length
 
   if (bond_per_atom < atom->bond_per_atom) {
     delete[] bond_negative;
